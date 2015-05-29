@@ -32,6 +32,7 @@ enum qxl_mode {
 
 typedef struct PCIQXLDevice {
     PCIDevice          pci;
+    PortioList         vga_port_list;
     SimpleSpiceDisplay ssd;
     int                id;
     uint32_t           debug;
@@ -120,6 +121,9 @@ typedef struct PCIQXLDevice {
     QXLRect            dirty[QXL_NUM_DIRTY_RECTS];
     QEMUBH            *update_area_bh;
 } PCIQXLDevice;
+
+#define TYPE_PCI_QXL "pci-qxl"
+#define PCI_QXL(obj) OBJECT_CHECK(PCIQXLDevice, (obj), TYPE_PCI_QXL)
 
 #define PANIC_ON(x) if ((x)) {                         \
     printf("%s: PANIC %s failed\n", __FUNCTION__, #x); \

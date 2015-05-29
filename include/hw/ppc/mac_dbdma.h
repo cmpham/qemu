@@ -42,6 +42,7 @@ struct DBDMA_io {
     /* unaligned last sector of a request */
     uint8_t remainder[0x200];
     int remainder_len;
+    QEMUIOVector iov;
 };
 
 /*

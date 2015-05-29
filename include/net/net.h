@@ -24,20 +24,19 @@ struct MACAddr {
 
 typedef struct NICPeers {
     NetClientState *ncs[MAX_QUEUE_NUM];
+    int32_t queues;
 } NICPeers;
 
 typedef struct NICConf {
     MACAddr macaddr;
     NICPeers peers;
     int32_t bootindex;
-    int32_t queues;
 } NICConf;
 
 #define DEFINE_NIC_PROPERTIES(_state, _conf)                            \
     DEFINE_PROP_MACADDR("mac",   _state, _conf.macaddr),                \
     DEFINE_PROP_VLAN("vlan",     _state, _conf.peers),                   \
-    DEFINE_PROP_NETDEV("netdev", _state, _conf.peers),                   \
-    DEFINE_PROP_INT32("bootindex", _state, _conf.bootindex, -1)
+    DEFINE_PROP_NETDEV("netdev", _state, _conf.peers)
 
 
 /* Net clients */
@@ -98,6 +97,7 @@ typedef struct NICState {
     bool peer_deleted;
 } NICState;
 
+char *qemu_mac_strdup_printf(const uint8_t *macaddr);
 NetClientState *qemu_find_netdev(const char *id);
 int qemu_find_net_clients_except(const char *id, NetClientState **ncs,
                                  NetClientOptionsKind type, int max);
@@ -157,7 +157,7 @@ ssize_t qemu_deliver_packet_iov(NetClientState *sender,
                             void *opaque);
 
 void print_net_client(Monitor *mon, NetClientState *nc);
-void do_info_network(Monitor *mon, const QDict *qdict);
+void hmp_info_network(Monitor *mon, const QDict *qdict);
 
 /* NIC info */
 
@@ -177,6 +177,7 @@ struct NICInfo {
 extern int nb_nics;
 extern NICInfo nd_table[MAX_NICS];
 extern int default_net;
+extern const char *host_net_devices[];
 
 /* from net.c */
 extern const char *legacy_tftp_prefix;
@@ -187,8 +188,8 @@ int net_client_parse(QemuOptsList *opts_list, const char *str);
 int net_init_clients(void);
 void net_check_clients(void);
 void net_cleanup(void);
-void net_host_device_add(Monitor *mon, const QDict *qdict);
-void net_host_device_remove(Monitor *mon, const QDict *qdict);
+void hmp_host_net_add(Monitor *mon, const QDict *qdict);
+void hmp_host_net_remove(Monitor *mon, const QDict *qdict);
 void netdev_add(QemuOpts *opts, Error **errp);
 int qmp_netdev_add(Monitor *mon, const QDict *qdict, QObject **ret);
 

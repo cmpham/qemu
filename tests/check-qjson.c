@@ -1,6 +1,6 @@
 /*
  * Copyright IBM, Corp. 2009
- * Copyright (c) 2013 Red Hat Inc.
+ * Copyright (c) 2013, 2015 Red Hat Inc.
  *
  * Authors:
  *  Anthony Liguori   <aliguori@us.ibm.com>
@@ -45,6 +45,13 @@ static void escaped_string(void)
         { "\"single byte utf-8 \\u0020\"", "single byte utf-8  ", .skip = 1 },
         { "\"double byte utf-8 \\u00A2\"", "double byte utf-8 \xc2\xa2" },
         { "\"triple byte utf-8 \\u20AC\"", "triple byte utf-8 \xe2\x82\xac" },
+        { "'\\b'", "\b", .skip = 1 },
+        { "'\\f'", "\f", .skip = 1 },
+        { "'\\n'", "\n", .skip = 1 },
+        { "'\\r'", "\r", .skip = 1 },
+        { "'\\t'", "\t", .skip = 1 },
+        { "'\\/'", "/", .skip = 1 },
+        { "'\\\\'", "\\", .skip = 1 },
         {}
     };
 
@@ -998,6 +1005,7 @@ static void keyword_literal(void)
 {
     QObject *obj;
     QBool *qbool;
+    QObject *null;
     QString *str;
 
     obj = qobject_from_json("true");
@@ -1034,7 +1042,7 @@ static void keyword_literal(void)
     g_assert(qbool_get_int(qbool) == 0);
 
     QDECREF(qbool);
-    
+
     obj = qobject_from_jsonf("%i", true);
     g_assert(obj != NULL);
     g_assert(qobject_type(obj) == QTYPE_QBOOL);
@@ -1043,6 +1051,16 @@ static void keyword_literal(void)
     g_assert(qbool_get_int(qbool) != 0);
 
     QDECREF(qbool);
+
+    obj = qobject_from_json("null");
+    g_assert(obj != NULL);
+    g_assert(qobject_type(obj) == QTYPE_QNULL);
+
+    null = qnull();
+    g_assert(null == obj);
+
+    qobject_decref(obj);
+    qobject_decref(null);
 }
 
 typedef struct LiteralQDictEntry LiteralQDictEntry;
