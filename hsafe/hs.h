@@ -6,6 +6,8 @@
  **/
 #pragma once
 
+#define OPSHIFT 8
+
 static inline void gen_instr_end(DisasContext *s);
 
 static inline void gen_block_start(DisasContext *s, struct TranslationBlock *tb, uint64_t pc);
