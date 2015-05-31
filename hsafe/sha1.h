@@ -3,22 +3,20 @@
 
 #pragma once
 
-#include "Platform.h"
+#include "hsafe/Platform.h"
 
-namespace ihash {
-
-struct SHA1_CTX
+typedef struct SHA1_CTX
 {
     uint32_t state[5];
     uint32_t count[2];
     uint8_t  buffer[64];
-};
+} SHA1_CTX;
 
 #define SHA1_DIGEST_SIZE 20
 
-struct ShaDigest {
+typedef struct ShaDigest {
   uint8_t bytes[SHA1_DIGEST_SIZE];
-};
+} ShaDigest;
 
 void SHA1_Init(SHA1_CTX* context);
 void SHA1_Update(SHA1_CTX* context, const uint8_t* data, const size_t len);
@@ -30,5 +28,3 @@ void SHA1_xhash(ShaDigest *digest1, const ShaDigest *digest2);
 void SHA1_initXHash(ShaDigest *digest);
 
 void digest_to_hex(const ShaDigest *digest, char *output);
-
-} // of namespace ihash

@@ -80,9 +80,7 @@ A million repetitions of "a"
 #include <string.h>
 #include <stdlib.h>
 
-#include "sha1.h"
-
-namespace ihash {
+#include "hsafe/sha1.h"
 
 #if defined(_MSC_VER)
 #pragma warning(disable : 4267)
@@ -112,6 +110,26 @@ void SHA1_Transform(uint32_t state[5], const uint8_t buffer[64]);
 #define R3(v,w,x,y,z,i) z+=(((w|x)&y)|(w&x))+blk(i)+0x8F1BBCDC+rol(v,5);w=rol(w,30);
 #define R4(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0xCA62C1D6+rol(v,5);w=rol(w,30);
 
+
+inline uint32_t rotl32 ( uint32_t x, int8_t r )
+{
+  return (x << r) | (x >> (32 - r));
+}
+
+inline uint64_t rotl64 ( uint64_t x, int8_t r )
+{
+  return (x << r) | (x >> (64 - r));
+}
+
+inline uint32_t rotr32 ( uint32_t x, int8_t r )
+{
+  return (x >> r) | (x << (32 - r));
+}
+
+inline uint64_t rotr64 ( uint64_t x, int8_t r )
+{
+  return (x >> r) | (x << (64 - r));
+}
 
 /* Hash a single 512-bit block. This is the core of the algorithm. */
 void SHA1_Transform(uint32_t state[5], const uint8_t buffer[64])
@@ -240,7 +258,8 @@ void SHA1_Final(SHA1_CTX* context, ShaDigest *digest)
 // digest1 = digest1 XOR digest2
 void SHA1_xhash(ShaDigest *digest1, const ShaDigest *digest2)
 {
-    for (int i = 0; i < SHA1_DIGEST_SIZE; i++) {
+    int i;
+    for (i = 0; i < SHA1_DIGEST_SIZE; i++) {
       digest1->bytes[i] = digest1->bytes[i] ^ digest2->bytes[i];
     }
 }
@@ -325,5 +344,3 @@ int main(int argc, char** argv)
     return(0);
 }
 #endif /* TEST */
-
-} // of namespace ihash

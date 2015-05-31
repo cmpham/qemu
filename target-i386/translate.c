@@ -292,6 +292,66 @@ static void gen_update_cc_op(DisasContext *s)
 
 #ifdef HSAFE
 #include "hsafe/hs.h"
+
+static inline void hsafe_gen_instr_end(CPUX86State *env, DisasContext *s, struct TranslationBlock *tb)
+{
+  int i;
+  if (s && !s->done_instr_end && tb && tb->hsafe_cb) {
+    HSafeCodeBlock* cb = tb->hsafe_cb;
+
+    if (cb->currentInstIndex < HSAFE_MAX_BLOCK_LENGTH) {
+      int ins_len = s->nextPc - s->insPc;
+      if (s->useNextPc && (ins_len > HSAFE_MAX_INST_LENGTH)) {
+        ins_len = HSAFE_MAX_INST_LENGTH;
+      } else {
+        ins_len = 1;
+      }
+
+      for (i = 0; i < ins_len; ++i) {
+        cb->insts[cb->currentInstIndex].mem[i] = cpu_ldub_code(env, s->insPc + i);
+      }
+      cb->insts[cb->currentInstIndex].addr = (uint16_t)(s->insPc & HSAFE_ADDR_MASK);
+      cb->currentInstIndex++;
+    }
+    s->done_instr_end = 1;
+  }
+}
+
+static inline void hsafe_gen_block_start(DisasContext *s, struct TranslationBlock *tb, uint64_t pc)
+{
+
+}
+
+static inline void hsafe_gen_block_end(DisasContext *s /*, struct TranslationBlock *tb*/)
+{
+
+}
+
+static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
+{
+    uint8_t opc = (arg >> OPSHIFT) & 0xFF;
+    switch(opc) {
+      case 0x60: /* profile_init */
+        printf("\tprofile_init\n");
+        break;
+
+      case 0x61: /* profile_stop */
+        printf("\tprofile_stop\n");
+        break;
+
+      case 0x62: /* profile_block_begin */
+        printf("\tprofile_block_begin\n");
+        break;
+
+      case 0x63: /* profile_block_end */
+        printf("\tprofile_block_end\n");
+        break;
+
+      default:
+        printf("\tUnsupported opcode\n");
+    }
+}
+
 #endif /* HSAFE */
 
 /* In instruction encodings for byte register accesses the
@@ -418,7 +478,7 @@ static void gen_add_A0_im(DisasContext *s, int val)
 static inline void gen_op_jmp_v(DisasContext *s, TCGv dest)
 {
 #ifdef HSAFE
-    gen_block_end(s);
+    hsafe_gen_block_end(s);
 #endif /* HSAFE */
 
     tcg_gen_st_tl(dest, cpu_env, offsetof(CPUX86State, eip));
@@ -8037,7 +8097,7 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
         max_insns = CF_COUNT_MASK;
 
 #ifdef HSAFE
-    gen_block_start(dc, tb, pc_start);
+    hsafe_gen_block_start(dc, tb, pc_start);
 #endif /* HSAFE */
 
     gen_tb_start(tb);
@@ -8083,7 +8143,7 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
             dc->nextPc = new_pc_ptr - dc->cs_base;
             dc->useNextPc = 1;
         }
-        gen_instr_end(dc);
+        hsafe_gen_instr_end(env, dc, tb);
 #endif /* HSAFE */
 
         pc_ptr = new_pc_ptr;

@@ -46,6 +46,19 @@ typedef struct SyncClocks {
 #define MAX_DELAY_PRINT_RATE 2000000000LL
 #define MAX_NB_PRINTS 100
 
+#define HSAFE
+
+#ifdef HSAFE
+#include "hsafe/hs.h"
+
+static inline void hsafe_exec_tb(CPUState *cpu, uint8_t *tb_ptr) {
+}
+
+static inline void hsafe_end_exec_tb(CPUState *cpu, uint8_t *tb_ptr) {
+}
+
+#endif /* HSAFE */
+
 static void align_clocks(SyncClocks *sc, const CPUState *cpu)
 {
     int64_t cpu_icount;
@@ -179,6 +192,10 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr)
     CPUArchState *env = cpu->env_ptr;
     uintptr_t next_tb;
 
+#ifdef HSAFE
+    hsafe_exec_tb(cpu, tb_ptr);
+#endif /* HSAFE */
+
 #if defined(DEBUG_DISAS)
     if (qemu_loglevel_mask(CPU_LOG_TB_CPU)) {
 #if defined(TARGET_I386)
@@ -198,6 +215,11 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr)
     cpu->can_do_io = 0;
     next_tb = tcg_qemu_tb_exec(env, tb_ptr);
     cpu->can_do_io = 1;
+
+#ifdef HSAFE
+    hsafe_end_exec_tb(cpu, tb_ptr);
+#endif /* HSAFE */
+
     trace_exec_tb_exit((void *) (next_tb & ~TB_EXIT_MASK),
                        next_tb & TB_EXIT_MASK);
 
@@ -271,6 +293,11 @@ static TranslationBlock *tb_find_slow(CPUArchState *env,
     phys_page1 = phys_pc & TARGET_PAGE_MASK;
     h = tb_phys_hash_func(phys_pc);
     ptb1 = &tcg_ctx.tb_ctx.tb_phys_hash[h];
+
+#ifdef HSAFE
+    goto not_found;
+#endif
+
     for(;;) {
         tb = *ptb1;
         if (!tb)
@@ -322,6 +349,7 @@ static inline TranslationBlock *tb_find_fast(CPUArchState *env)
        is executed. */
     cpu_get_tb_cpu_state(env, &pc, &cs_base, &flags);
     tb = cpu->tb_jmp_cache[tb_jmp_cache_hash_func(pc)];
+
     if (unlikely(!tb || tb->pc != pc || tb->cs_base != cs_base ||
                  tb->flags != flags)) {
         tb = tb_find_slow(env, pc, cs_base, flags);
