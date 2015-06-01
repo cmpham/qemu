@@ -160,7 +160,6 @@ struct TranslationBlock {
 #define CF_LAST_IO     0x8000 /* Last insn may be an IO access.  */
 #define CF_NOCACHE     0x10000 /* To be freed after execution */
 #define CF_USE_ICOUNT  0x20000
-#define CF_HSAFE       0x40000
 
     void *tc_ptr;    /* pointer to the translated code */
     /* next matching tb for physical address. */
@@ -187,6 +186,11 @@ struct TranslationBlock {
 
 #ifdef HSAFE
     HSafeCodeBlock *hsafe_cb;
+    uint32_t hsafe_flags;
+#define CF_HSAFE_HAS_INIT       0x0001
+#define CF_HSAFE_HAS_STOP       0x0002
+#define CF_HSAFE_HAS_BSTART     0x0004
+#define CF_HSAFE_HAS_BSTOP      0x0008
 #endif /* HSAFE */
 };
 

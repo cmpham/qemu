@@ -1027,6 +1027,7 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
 
 #ifdef HSAFE
     tb->hsafe_cb = NULL;
+    tb->hsafe_flags = 0;
 #endif /* HSAFE */
 
     tb->tc_ptr = tcg_ctx.code_gen_ptr;

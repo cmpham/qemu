@@ -332,34 +332,34 @@ static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
 {
     uint8_t opc = (arg >> OPSHIFT) & 0xFF;
     struct TranslationBlock *tb = s->tb;
-    // Force tb with custom instruction to be always re-translated.
-    tb->cflags |= CF_NOCACHE | CF_HSAFE;
+
+    printf("hsafe_custom_instruction. hsafe_flags=%x\n", tb->hsafe_flags);
 
     switch(opc) {
       case 0x60: /* profile_init */
         printf("\tprofile_init\n");
-        gHSafeState.isInitialized = 1;
+        tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
         break;
 
       case 0x61: /* profile_stop */
         printf("\tprofile_stop\n");
-        gHSafeState.isInitialized = 0;
+        tb->hsafe_flags |= CF_HSAFE_HAS_STOP;
         break;
 
       case 0x62: /* profile_block_begin */
         printf("\tprofile_block_begin\n");
-        SHA1_initXHash(&gHSafeState.curHash);
-        gHSafeState.isActive = 1;
+        tb->hsafe_flags |= CF_HSAFE_HAS_BSTART;
         break;
 
       case 0x63: /* profile_block_end */
         printf("\tprofile_block_end\n");
-        gHSafeState.isActive = 0;
+        tb->hsafe_flags |= CF_HSAFE_HAS_BSTOP;
         break;
 
       default:
         printf("\tUnsupported opcode\n");
     }
+    printf("hsafe_custom_instruction. Updated hsafe_flags=%x\n", tb->hsafe_flags);
 }
 
 #endif /* HSAFE */

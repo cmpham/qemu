@@ -52,9 +52,55 @@ typedef struct SyncClocks {
 #include "hsafe/hs.h"
 
 static inline void hsafe_exec_tb(CPUState *cpu, uint8_t *tb_ptr) {
+  if (!cpu) return;
+  struct TranslationBlock *tb = cpu->current_tb;
+  if (!tb) return;
+
+  if(tb->hsafe_flags & CF_HSAFE_HAS_INIT) {
+    gHSafeState.isInitialized = 1;
+    printf("Executing HSAFE INIT block.\n");
+  }
+
+  if (tb->hsafe_flags & CF_HSAFE_HAS_STOP) {
+    printf("Executing HSAFE STOP block.\n");
+  }
+
+  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTART) {
+    SHA1_initXHash(&gHSafeState.curHash);
+    gHSafeState.isActive = 1;
+    printf("Executing HSAFE BSTART block.\n");
+  }
+
+  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTOP) {
+    printf("Executing HSAFE BSTOP block.\n");
+  }
 }
 
 static inline void hsafe_end_exec_tb(CPUState *cpu, uint8_t *tb_ptr) {
+  if (!cpu) return;
+  struct TranslationBlock *tb = cpu->current_tb;
+
+  if (!tb) return;
+
+  if(tb->hsafe_flags & CF_HSAFE_HAS_INIT) {
+    printf("Ending HSAFE INIT block.\n");
+  }
+
+  if (tb->hsafe_flags & CF_HSAFE_HAS_STOP) {
+    gHSafeState.isInitialized = 0;
+    printf("Ending HSAFE STOP block.\n");
+  }
+
+  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTART) {
+    tb_phys_invalidate(tb, -1);
+    printf("Ending HSAFE BSTART block.\n");
+  }
+
+  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTOP) {
+    tb_phys_invalidate(tb, -1);
+    gHSafeState.isActive = 0;
+    printf("Ending HSAFE BSTOP block.\n");
+  }
 }
 
 #endif /* HSAFE */
@@ -288,6 +334,13 @@ static TranslationBlock *tb_find_slow(CPUArchState *env,
 
     tcg_ctx.tb_ctx.tb_invalidated_flag = 0;
 
+/* #ifdef HSAFE */
+/*         if (tb->cflags & CF_HSAFE) { */
+/*           printf("tb_find_slow - CF_FLAGS.\n"); */
+/*           goto not_found; */
+/*         } */
+/* #endif /\* HSAFE *\/ */
+
     /* find translated block using physical mappings */
     phys_pc = get_page_addr_code(env, pc);
     phys_page1 = phys_pc & TARGET_PAGE_MASK;
@@ -299,9 +352,6 @@ static TranslationBlock *tb_find_slow(CPUArchState *env,
         if (!tb)
             goto not_found;
 
-#ifdef HSAFE
-        if (tb->cflags & CF_HSAFE) goto not_found;
-#endif
         if (tb->pc == pc &&
             tb->page_addr[0] == phys_page1 &&
             tb->cs_base == cs_base &&
@@ -350,9 +400,13 @@ static inline TranslationBlock *tb_find_fast(CPUArchState *env)
     cpu_get_tb_cpu_state(env, &pc, &cs_base, &flags);
     tb = cpu->tb_jmp_cache[tb_jmp_cache_hash_func(pc)];
 
-#ifdef HSAFE
-    if (tb && (tb->cflags & CF_HSAFE)) tb = NULL;
-#endif
+/* #ifdef HSAFE */
+/*     if (tb && (tb->cflags & CF_HSAFE)) { */
+/*       printf("tb_find_fast - CF_FLAGS.\n"); */
+/*       tb = tb_gen_code(cpu, pc, cs_base, flags, 0); */
+/*     } */
+/* #endif */
+
     if (unlikely(!tb || tb->pc != pc || tb->cs_base != cs_base ||
                  tb->flags != flags)) {
         tb = tb_find_slow(env, pc, cs_base, flags);
