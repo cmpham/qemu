@@ -321,11 +321,41 @@ static inline void hsafe_gen_instr_end(CPUX86State *env, DisasContext *s, struct
 
 static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc)
 {
-  /* struct TranslationBlock *tb = s->tb; */
+  if (s && s->tb && s->tb->hsafe_cb) {
+    // Basic block index is the prefix of the code block
+    uint64_t* blockIndex = (uint64_t *)s->tb->hsafe_cb->insts;
+    *blockIndex = gHSafeState.bblockCount;
+    gHSafeState.bblockCount++;
+    s->tb->hsafe_cb->currentInstIndex = 1;
+  }
 }
 
 static inline void hsafe_gen_block_end(DisasContext *s)
 {
+  if (s && s->tb && s->tb->hsafe_cb) {
+    HSafeCodeBlock *hcb = s->tb->hsafe_cb;
+
+    // Compute SHA1
+    uint64_t blockIndex;
+    SHA1_CTX context;
+    ShaDigest digest;
+
+    // Copy blockIndex to the first instruction slot.
+    memcpy(&blockIndex, hcb->insts, sizeof(blockIndex));
+    printf(">>>>>>>>>>> hsafe_gen_block_end: currentInstIndex=%ld, blockCount=%ld\n",
+        hcb->currentInstIndex,
+        blockIndex);
+    SHA1_Init(&context);
+    uint64_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
+    SHA1_Update(&context, (uint8_t*)hcb->insts, cbSize);
+    SHA1_Final(&context, &digest);
+    // SHA1_xhash(&plgState->m_xHash, &digest);
+
+    // For debuging
+    char output[80];
+    digest_to_hex(&digest, output);
+    printf("\t>>>>>>>>>>>> SHA1=%s returned\n", output);
+  }
 }
 
 static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)

@@ -191,6 +191,8 @@ struct TranslationBlock {
 #define CF_HSAFE_HAS_STOP       0x0002
 #define CF_HSAFE_HAS_BSTART     0x0004
 #define CF_HSAFE_HAS_BSTOP      0x0008
+#define CF_HSAFE_COMPUTING_HASH 0x0010
+#define CF_HSAFE_HASHED         0x0020
 #endif /* HSAFE */
 };
 

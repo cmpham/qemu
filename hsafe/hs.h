@@ -25,12 +25,14 @@ typedef struct HSafeCodeBlock {
   struct HSafeInstruction insts[HSAFE_MAX_BLOCK_LENGTH];
   uint64_t startPc;
   uint64_t currentInstIndex;
+  ShaDigest hash;
 } HSafeCodeBlock;
 
 // Assuming ONE vCPU for now
 typedef struct HSafeGlobalState {
   uint8_t isInitialized;
   uint8_t isActive;
+  uint64_t bblockCount;
   ShaDigest curHash;
 } HSafeGlobalState;
 

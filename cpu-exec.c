@@ -58,6 +58,7 @@ static inline void hsafe_exec_tb(CPUState *cpu, uint8_t *tb_ptr) {
 
   if(tb->hsafe_flags & CF_HSAFE_HAS_INIT) {
     gHSafeState.isInitialized = 1;
+    gHSafeState.bblockCount = 0;
     printf("Executing HSAFE INIT block.\n");
   }
 
