@@ -62,6 +62,10 @@
 #include "qemu/bitmap.h"
 #include "qemu/timer.h"
 
+#ifdef HSAFE
+#include "hsafe/hs.h"
+#endif /* HSAFE */
+
 //#define DEBUG_TB_INVALIDATE
 //#define DEBUG_FLUSH
 /* make various TB consistency checks */
@@ -133,7 +137,10 @@ static TranslationBlock *tb_find_pc(uintptr_t tc_ptr);
 
 void cpu_gen_init(void)
 {
-    tcg_context_init(&tcg_ctx); 
+    tcg_context_init(&tcg_ctx);
+#ifdef HSAFE
+    hsafe_init();
+#endif /* HSAFE */
 }
 
 /* return non zero if the very first instruction is invalid so that
@@ -1017,6 +1024,11 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
         /* Don't forget to invalidate previous TB info.  */
         tcg_ctx.tb_ctx.tb_invalidated_flag = 1;
     }
+
+#ifdef HSAFE
+    tb->hsafe_cb = NULL;
+#endif /* HSAFE */
+
     tb->tc_ptr = tcg_ctx.code_gen_ptr;
     tb->cs_base = cs_base;
     tb->flags = flags;

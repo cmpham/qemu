@@ -294,14 +294,14 @@ static TranslationBlock *tb_find_slow(CPUArchState *env,
     h = tb_phys_hash_func(phys_pc);
     ptb1 = &tcg_ctx.tb_ctx.tb_phys_hash[h];
 
-#ifdef HSAFE
-    goto not_found;
-#endif
-
     for(;;) {
         tb = *ptb1;
         if (!tb)
             goto not_found;
+
+#ifdef HSAFE
+        if (tb->cflags & CF_HSAFE) goto not_found;
+#endif
         if (tb->pc == pc &&
             tb->page_addr[0] == phys_page1 &&
             tb->cs_base == cs_base &&
@@ -350,6 +350,9 @@ static inline TranslationBlock *tb_find_fast(CPUArchState *env)
     cpu_get_tb_cpu_state(env, &pc, &cs_base, &flags);
     tb = cpu->tb_jmp_cache[tb_jmp_cache_hash_func(pc)];
 
+#ifdef HSAFE
+    if (tb && (tb->cflags & CF_HSAFE)) tb = NULL;
+#endif
     if (unlikely(!tb || tb->pc != pc || tb->cs_base != cs_base ||
                  tb->flags != flags)) {
         tb = tb_find_slow(env, pc, cs_base, flags);

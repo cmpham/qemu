@@ -27,8 +27,13 @@ typedef struct HSafeCodeBlock {
   uint64_t currentInstIndex;
 } HSafeCodeBlock;
 
-typedef struct HsafeGlobalSate {
-  bool isInitialized;
-  bool isActive;
+// Assuming ONE vCPU for now
+typedef struct HSafeGlobalState {
+  uint8_t isInitialized;
+  uint8_t isActive;
   ShaDigest curHash;
-} HsafeGlobalSate;
+} HSafeGlobalState;
+
+extern HSafeGlobalState gHSafeState;
+
+void hsafe_init(void);

@@ -296,55 +296,65 @@ static void gen_update_cc_op(DisasContext *s)
 static inline void hsafe_gen_instr_end(CPUX86State *env, DisasContext *s, struct TranslationBlock *tb)
 {
   int i;
-  if (s && !s->done_instr_end && tb && tb->hsafe_cb) {
-    HSafeCodeBlock* cb = tb->hsafe_cb;
+  if (s && !s->done_instr_end) {
+    if (tb && tb->hsafe_cb) {
+        HSafeCodeBlock* cb = tb->hsafe_cb;
 
-    if (cb->currentInstIndex < HSAFE_MAX_BLOCK_LENGTH) {
-      int ins_len = s->nextPc - s->insPc;
-      if (s->useNextPc && (ins_len > HSAFE_MAX_INST_LENGTH)) {
-        ins_len = HSAFE_MAX_INST_LENGTH;
-      } else {
-        ins_len = 1;
-      }
+        if (cb->currentInstIndex < HSAFE_MAX_BLOCK_LENGTH) {
+        int ins_len = s->nextPc - s->insPc;
+        if (s->useNextPc && (ins_len > HSAFE_MAX_INST_LENGTH)) {
+            ins_len = HSAFE_MAX_INST_LENGTH;
+        } else {
+            ins_len = 1;
+        }
 
-      for (i = 0; i < ins_len; ++i) {
-        cb->insts[cb->currentInstIndex].mem[i] = cpu_ldub_code(env, s->insPc + i);
-      }
-      cb->insts[cb->currentInstIndex].addr = (uint16_t)(s->insPc & HSAFE_ADDR_MASK);
-      cb->currentInstIndex++;
+        for (i = 0; i < ins_len; ++i) {
+            cb->insts[cb->currentInstIndex].mem[i] = cpu_ldub_code(env, s->insPc + i);
+        }
+        cb->insts[cb->currentInstIndex].addr = (uint16_t)(s->insPc & HSAFE_ADDR_MASK);
+        cb->currentInstIndex++;
+        }
     }
     s->done_instr_end = 1;
   }
 }
 
-static inline void hsafe_gen_block_start(DisasContext *s, struct TranslationBlock *tb, uint64_t pc)
+static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc)
 {
-
+  /* struct TranslationBlock *tb = s->tb; */
 }
 
-static inline void hsafe_gen_block_end(DisasContext *s /*, struct TranslationBlock *tb*/)
+static inline void hsafe_gen_block_end(DisasContext *s)
 {
-
 }
 
 static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
 {
     uint8_t opc = (arg >> OPSHIFT) & 0xFF;
+    struct TranslationBlock *tb = s->tb;
+    // Force tb with custom instruction to be always re-translated.
+    tb->cflags |= CF_NOCACHE | CF_HSAFE;
+
     switch(opc) {
       case 0x60: /* profile_init */
         printf("\tprofile_init\n");
+        gHSafeState.isInitialized = 1;
         break;
 
       case 0x61: /* profile_stop */
         printf("\tprofile_stop\n");
+        gHSafeState.isInitialized = 0;
         break;
 
       case 0x62: /* profile_block_begin */
         printf("\tprofile_block_begin\n");
+        SHA1_initXHash(&gHSafeState.curHash);
+        gHSafeState.isActive = 1;
         break;
 
       case 0x63: /* profile_block_end */
         printf("\tprofile_block_end\n");
+        gHSafeState.isActive = 0;
         break;
 
       default:
@@ -8097,7 +8107,7 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
         max_insns = CF_COUNT_MASK;
 
 #ifdef HSAFE
-    hsafe_gen_block_start(dc, tb, pc_start);
+    hsafe_gen_block_start(dc, pc_start);
 #endif /* HSAFE */
 
     gen_tb_start(tb);

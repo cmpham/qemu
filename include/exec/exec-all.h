@@ -160,6 +160,7 @@ struct TranslationBlock {
 #define CF_LAST_IO     0x8000 /* Last insn may be an IO access.  */
 #define CF_NOCACHE     0x10000 /* To be freed after execution */
 #define CF_USE_ICOUNT  0x20000
+#define CF_HSAFE       0x40000
 
     void *tc_ptr;    /* pointer to the translated code */
     /* next matching tb for physical address. */
