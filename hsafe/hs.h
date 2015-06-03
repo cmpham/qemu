@@ -6,6 +6,9 @@
  **/
 #pragma once
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+#include <stdint.h>
 #include "hsafe/sha1.h"
 
 #define OPSHIFT 8
@@ -39,3 +42,5 @@ typedef struct HSafeGlobalState {
 extern HSafeGlobalState gHSafeState;
 
 void hsafe_init(void);
+
+void hsafe_dump_cb(HSafeCodeBlock *cb);

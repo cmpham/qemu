@@ -301,17 +301,24 @@ static inline void hsafe_gen_instr_end(CPUX86State *env, DisasContext *s, struct
         HSafeCodeBlock* cb = tb->hsafe_cb;
 
         if (cb->currentInstIndex < HSAFE_MAX_BLOCK_LENGTH) {
-        int ins_len = s->nextPc - s->insPc;
-        if (s->useNextPc && (ins_len > HSAFE_MAX_INST_LENGTH)) {
-            ins_len = HSAFE_MAX_INST_LENGTH;
-        } else {
-            ins_len = 1;
+        int64_t ins_len = 1;
+        if (s->useNextPc) {
+          ins_len = s->nextPc - s->insPc;
+          if (ins_len > HSAFE_MAX_INST_LENGTH) ins_len = HSAFE_MAX_INST_LENGTH;
         }
 
-        for (i = 0; i < ins_len; ++i) {
-            cb->insts[cb->currentInstIndex].mem[i] = cpu_ldub_code(env, s->insPc + i);
-        }
         cb->insts[cb->currentInstIndex].addr = (uint16_t)(s->insPc & HSAFE_ADDR_MASK);
+        /* printf("\t>>>>>>>>>>>>>>>>>> insPc=0x%08llx - nextPc=0x%08llx\n", */
+        /*        (unsigned long long)s->insPc, (unsigned long long)s->nextPc); */
+        printf("\t>>>>>>>>>>>>>>>>>> Ints[%03ld - 0x%04x] len=%03ld: ",
+               (unsigned long) cb->currentInstIndex,
+               (unsigned int) cb->insts[cb->currentInstIndex].addr,
+               (unsigned long) ins_len);
+        for (i = 0; i < ins_len; ++i) {
+          cb->insts[cb->currentInstIndex].mem[i] = cpu_ldub_code(env, s->insPc + i);
+          printf("%x ", cb->insts[cb->currentInstIndex].mem[i]);
+        }
+        printf("\n");
         cb->currentInstIndex++;
         }
     }
@@ -322,40 +329,35 @@ static inline void hsafe_gen_instr_end(CPUX86State *env, DisasContext *s, struct
 static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc)
 {
   if (s && s->tb && s->tb->hsafe_cb) {
-    // Basic block index is the prefix of the code block
-    uint64_t* blockIndex = (uint64_t *)s->tb->hsafe_cb->insts;
-    *blockIndex = gHSafeState.bblockCount;
-    gHSafeState.bblockCount++;
     s->tb->hsafe_cb->currentInstIndex = 1;
+    s->tb->hsafe_cb->startPc = pc;
   }
 }
 
 static inline void hsafe_gen_block_end(DisasContext *s)
 {
-  if (s && s->tb && s->tb->hsafe_cb) {
-    HSafeCodeBlock *hcb = s->tb->hsafe_cb;
+  /* if (s && s->tb && s->tb->hsafe_cb) { */
+  /*   HSafeCodeBlock *hcb = s->tb->hsafe_cb; */
 
-    // Compute SHA1
-    uint64_t blockIndex;
-    SHA1_CTX context;
-    ShaDigest digest;
+  /*   // Compute SHA1 */
+  /*   SHA1_CTX context; */
+  /*   ShaDigest *digest = &hcb->hash; */
 
-    // Copy blockIndex to the first instruction slot.
-    memcpy(&blockIndex, hcb->insts, sizeof(blockIndex));
-    printf(">>>>>>>>>>> hsafe_gen_block_end: currentInstIndex=%ld, blockCount=%ld\n",
-        hcb->currentInstIndex,
-        blockIndex);
-    SHA1_Init(&context);
-    uint64_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
-    SHA1_Update(&context, (uint8_t*)hcb->insts, cbSize);
-    SHA1_Final(&context, &digest);
-    // SHA1_xhash(&plgState->m_xHash, &digest);
+  /*   SHA1_Init(&context); */
+  /*   uint64_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex; */
+  /*   SHA1_Update(&context, (uint8_t*)hcb->insts, cbSize); */
+  /*   SHA1_Final(&context, digest); */
 
-    // For debuging
-    char output[80];
-    digest_to_hex(&digest, output);
-    printf("\t>>>>>>>>>>>> SHA1=%s returned\n", output);
-  }
+  /*   // For debuging */
+  /*   uint64_t blockIndex; */
+  /*   char output[80]; */
+  /*   digest_to_hex(digest, output); */
+  /*   memcpy(&blockIndex, hcb->insts, sizeof(blockIndex)); */
+  /*   printf(">>>>>>>>>>> hsafe_gen_block_end: currentInstIndex=%ld, blockCount=%ld\n", */
+  /*       hcb->currentInstIndex, */
+  /*       blockIndex); */
+  /*   printf("\t>>>>>>>>>>>> SHA1=%s saved\n", output); */
+  /* } */
 }
 
 static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
@@ -8180,7 +8182,8 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
 #ifdef HSAFE
         if (!dc->is_jmp) {
             //Allow proper pc update for onTranslateInstruction events
-            dc->nextPc = new_pc_ptr - dc->cs_base;
+            /* dc->nextPc = new_pc_ptr - dc->cs_base; */
+            dc->nextPc = new_pc_ptr;
             dc->useNextPc = 1;
         }
         hsafe_gen_instr_end(env, dc, tb);
