@@ -96,29 +96,23 @@ static inline void hsafe_end_exec_tb(CPUState *cpu, uint8_t *tb_ptr) {
   if (gHSafeState.isInitialized && gHSafeState.isActive && tb->hsafe_cb) {
     HSafeCodeBlock *hcb = tb->hsafe_cb;
     // Basic block index is the prefix of the code block
-    /* uint64_t* blockIndex = (uint64_t *)hcb->insts; */
-    /* *blockIndex = gHSafeState.bblockCount; */
     memcpy(hcb->insts, &gHSafeState.bblockCount, sizeof(gHSafeState.bblockCount));
     uint64_t* blockIndex = (uint64_t *)hcb->insts;
     gHSafeState.bblockCount++;
 
     // Compute SHA1 for the basic block
-    sha1nfo *context = (sha1nfo *) &hcb->hash;
-
-    sha1_init(context);
+    sha1nfo *cb_sha1 = (sha1nfo *) &hcb->hash;
+    sha1_init(cb_sha1);
     uint32_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
-    sha1_write(context, (char *)hcb->insts, cbSize);
-    /* printf("\t>>>>>>>>>>>> blockIndex=%" PRIu64 "; startPc=%" PRIx64 "; instNum=%d\n", */
-    /*        *blockIndex, hcb->startPc, hcb->currentInstIndex); */
+    sha1_write(cb_sha1, (char *)hcb->insts, cbSize);
+
     printf("\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu\n",
            (unsigned long) *blockIndex,
            (unsigned long long) hcb->startPc,
            (unsigned long) hcb->currentInstIndex,
            (unsigned long) cbSize);
-    sha1_info2hex(context, output);
+    sha1_info2hex(cb_sha1, output);
     printf("\t>>>>>>>>>>>> Executed block SHA1=%s\n", output);
-    /* printf("\t>>>>>>>> Dump 4 <<<<<<<< \n"); */
-    /* hsafe_dump_cb(hcb); */
 
     // Update xhash of the block
     hsafe_xhash(&gHSafeState.curHash, sha1_result(&tb->hsafe_cb->hash));

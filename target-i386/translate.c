@@ -293,6 +293,9 @@ static void gen_update_cc_op(DisasContext *s)
 #ifdef HSAFE
 #include "hsafe/hs.h"
 
+static inline void gen_op_mov_v_reg(TCGMemOp ot, TCGv t0, int reg);
+static void gen_op_mov_reg_v(TCGMemOp ot, int reg, TCGv t0);
+
 static inline void hsafe_gen_instr_end(CPUX86State *env, DisasContext *s, struct TranslationBlock *tb)
 {
   int i;
@@ -334,28 +337,6 @@ static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc)
 
 static inline void hsafe_gen_block_end(DisasContext *s)
 {
-  /* if (s && s->tb && s->tb->hsafe_cb) { */
-  /*   HSafeCodeBlock *hcb = s->tb->hsafe_cb; */
-
-  /*   // Compute SHA1 */
-  /*   SHA1_CTX context; */
-  /*   ShaDigest *digest = &hcb->hash; */
-
-  /*   SHA1_Init(&context); */
-  /*   uint64_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex; */
-  /*   SHA1_Update(&context, (uint8_t*)hcb->insts, cbSize); */
-  /*   SHA1_Final(&context, digest); */
-
-  /*   // For debuging */
-  /*   uint64_t blockIndex; */
-  /*   char output[80]; */
-  /*   digest_to_hex(digest, output); */
-  /*   memcpy(&blockIndex, hcb->insts, sizeof(blockIndex)); */
-  /*   printf(">>>>>>>>>>> hsafe_gen_block_end: currentInstIndex=%ld, blockCount=%ld\n", */
-  /*       hcb->currentInstIndex, */
-  /*       blockIndex); */
-  /*   printf("\t>>>>>>>>>>>> SHA1=%s saved\n", output); */
-  /* } */
 }
 
 static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
@@ -366,28 +347,34 @@ static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
     printf("hsafe_custom_instruction. hsafe_flags=%x\n", tb->hsafe_flags);
 
     switch(opc) {
-      case 0x60: /* profile_init */
-        printf("\tprofile_init\n");
-        tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
-        break;
+    case 0x00: /* verify hsafe mode */
+      printf("\thsafe_check\n");
+      TCGv_i32 v = tcg_const_i32(0x1);
+      gen_op_mov_reg_v(MO_32, R_EAX, v);
+      break;
 
-      case 0x61: /* profile_stop */
-        printf("\tprofile_stop\n");
-        tb->hsafe_flags |= CF_HSAFE_HAS_STOP;
-        break;
+    case 0x60: /* profile_init */
+      printf("\tprofile_init\n");
+      tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
+      break;
 
-      case 0x62: /* profile_block_begin */
-        printf("\tprofile_block_begin\n");
-        tb->hsafe_flags |= CF_HSAFE_HAS_BSTART;
-        break;
+    case 0x61: /* profile_stop */
+      printf("\tprofile_stop\n");
+      tb->hsafe_flags |= CF_HSAFE_HAS_STOP;
+      break;
 
-      case 0x63: /* profile_block_end */
-        printf("\tprofile_block_end\n");
-        tb->hsafe_flags |= CF_HSAFE_HAS_BSTOP;
-        break;
+    case 0x62: /* profile_block_begin */
+      printf("\tprofile_block_begin\n");
+      tb->hsafe_flags |= CF_HSAFE_HAS_BSTART;
+      break;
 
-      default:
-        printf("\tUnsupported opcode\n");
+    case 0x63: /* profile_block_end */
+      printf("\tprofile_block_end\n");
+      tb->hsafe_flags |= CF_HSAFE_HAS_BSTOP;
+      break;
+
+    default:
+      printf("\tUnsupported opcode\n");
     }
     printf("hsafe_custom_instruction. Updated hsafe_flags=%x\n", tb->hsafe_flags);
 }
