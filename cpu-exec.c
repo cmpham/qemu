@@ -66,7 +66,7 @@ static inline void hsafe_exec_tb(CPUState *cpu, uint8_t *tb_ptr) {
   }
 
   if (tb->hsafe_flags & CF_HSAFE_HAS_BSTART) {
-    SHA1_initXHash(&gHSafeState.curHash);
+    hasfe_xhashInit(&gHSafeState.curHash);
     gHSafeState.isActive = 1;
     gHSafeState.bblockCount = 0;
     printf("Executing HSAFE BSTART block.\n");
@@ -103,33 +103,33 @@ static inline void hsafe_end_exec_tb(CPUState *cpu, uint8_t *tb_ptr) {
     gHSafeState.bblockCount++;
 
     // Compute SHA1 for the basic block
-    SHA1_CTX context;
-    ShaDigest *digest = (ShaDigest *) &hcb->hash;
+    sha1nfo *context = (sha1nfo *) &hcb->hash;
 
-    SHA1_Init(&context);
-    uint64_t cbSize = sizeof(struct HSafeInstruction) *hcb->currentInstIndex;
-    SHA1_Update(&context, (uint8_t*)hcb->insts, cbSize);
-    SHA1_Final(&context, digest);
-    digest_to_hex(digest, output);
+    sha1_init(context);
+    uint32_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
+    sha1_write(context, (char *)hcb->insts, cbSize);
     /* printf("\t>>>>>>>>>>>> blockIndex=%" PRIu64 "; startPc=%" PRIx64 "; instNum=%d\n", */
     /*        *blockIndex, hcb->startPc, hcb->currentInstIndex); */
-    printf("\t>>>>>>>>>>>> blockIndex=%ld; startPc=0x%lx; instNum=%ld\n",
+    printf("\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu\n",
            (unsigned long) *blockIndex,
-           (unsigned long) hcb->startPc,
-           (unsigned long) hcb->currentInstIndex);
-    printf("\t>>>>>>>>>>>> SHA1=%s executed\n", output);
-    hsafe_dump_cb(hcb);
+           (unsigned long long) hcb->startPc,
+           (unsigned long) hcb->currentInstIndex,
+           (unsigned long) cbSize);
+    sha1_info2hex(context, output);
+    printf("\t>>>>>>>>>>>> Executed block SHA1=%s\n", output);
+    /* printf("\t>>>>>>>> Dump 4 <<<<<<<< \n"); */
+    /* hsafe_dump_cb(hcb); */
 
     // Update xhash of the block
-    SHA1_xhash(&gHSafeState.curHash, &tb->hsafe_cb->hash);
-    digest_to_hex(&gHSafeState.curHash, output);
+    hsafe_xhash(&gHSafeState.curHash, sha1_result(&tb->hsafe_cb->hash));
+    sha1_result2hex(&gHSafeState.curHash, output);
     printf("\t>>>>>>>>>>>> current XHASH=%s\n", output);
   }
 
   if (tb->hsafe_flags & CF_HSAFE_HAS_BSTOP) {
     tb_phys_invalidate(tb, -1);
     gHSafeState.isActive = 0;
-    digest_to_hex(&gHSafeState.curHash, output);
+    sha1_result2hex(&gHSafeState.curHash, output);
     printf("\t>>>>> Block Signature SHA1=%s\n", output);
     printf("Ending HSAFE BSTOP block.\n");
   }

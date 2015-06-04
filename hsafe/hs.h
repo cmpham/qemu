@@ -28,7 +28,7 @@ typedef struct HSafeCodeBlock {
   struct HSafeInstruction insts[HSAFE_MAX_BLOCK_LENGTH];
   uint64_t startPc;
   uint64_t currentInstIndex;
-  ShaDigest hash;
+  sha1nfo hash;
 } HSafeCodeBlock;
 
 // Assuming ONE vCPU for now
@@ -36,7 +36,7 @@ typedef struct HSafeGlobalState {
   uint8_t isInitialized;
   uint8_t isActive;
   uint64_t bblockCount;
-  ShaDigest curHash;
+  sha1result curHash;
 } HSafeGlobalState;
 
 extern HSafeGlobalState gHSafeState;
@@ -44,3 +44,8 @@ extern HSafeGlobalState gHSafeState;
 void hsafe_init(void);
 
 void hsafe_dump_cb(HSafeCodeBlock *cb);
+
+// hash1 = hash1 XOR hash2
+void hsafe_xhash(sha1result *hash1, const sha1result *hash2);
+
+void hasfe_xhashInit(sha1result *hash);

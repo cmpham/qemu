@@ -308,8 +308,6 @@ static inline void hsafe_gen_instr_end(CPUX86State *env, DisasContext *s, struct
         }
 
         cb->insts[cb->currentInstIndex].addr = (uint16_t)(s->insPc & HSAFE_ADDR_MASK);
-        /* printf("\t>>>>>>>>>>>>>>>>>> insPc=0x%08llx - nextPc=0x%08llx\n", */
-        /*        (unsigned long long)s->insPc, (unsigned long long)s->nextPc); */
         printf("\t>>>>>>>>>>>>>>>>>> Ints[%03ld - 0x%04x] len=%03ld: ",
                (unsigned long) cb->currentInstIndex,
                (unsigned int) cb->insts[cb->currentInstIndex].addr,
