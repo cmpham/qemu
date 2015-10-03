@@ -46,96 +46,6 @@ typedef struct SyncClocks {
 #define MAX_DELAY_PRINT_RATE 2000000000LL
 #define MAX_NB_PRINTS 100
 
-#define HSAFE
-
-#ifdef HSAFE
-#include "hsafe/hs.h"
-
-static inline void hsafe_exec_tb(CPUState *cpu, uint8_t *tb_ptr) {
-  if (!cpu) return;
-  struct TranslationBlock *tb = cpu->current_tb;
-  if (!tb) return;
-
-  if(tb->hsafe_flags & CF_HSAFE_HAS_INIT) {
-    gHSafeState.isInitialized = 1;
-    printf("Executing HSAFE INIT block.\n");
-  }
-
-  if (tb->hsafe_flags & CF_HSAFE_HAS_STOP) {
-    printf("Executing HSAFE STOP block.\n");
-  }
-
-  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTART) {
-    hasfe_xhashInit(&gHSafeState.curHash);
-    gHSafeState.isActive = 1;
-    gHSafeState.bblockCount = 0;
-    printf("Executing HSAFE BSTART block.\n");
-  }
-
-  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTOP) {
-    printf("Executing HSAFE BSTOP block.\n");
-  }
-}
-
-static inline void hsafe_end_exec_tb(CPUState *cpu, uint8_t *tb_ptr) {
-  char output[80];
-  if (!cpu) return;
-  struct TranslationBlock *tb = cpu->current_tb;
-
-  if (!tb) return;
-
-  if(tb->hsafe_flags & CF_HSAFE_HAS_INIT) {
-    printf("Ending HSAFE INIT block.\n");
-  }
-
-  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTART) {
-    tb_phys_invalidate(tb, -1);
-    printf("Ending HSAFE BSTART block.\n");
-  }
-
-  if (gHSafeState.isInitialized && gHSafeState.isActive && tb->hsafe_cb) {
-    HSafeCodeBlock *hcb = tb->hsafe_cb;
-    // Basic block index is the prefix of the code block
-    memcpy(hcb->insts, &gHSafeState.bblockCount, sizeof(gHSafeState.bblockCount));
-    uint64_t* blockIndex = (uint64_t *)hcb->insts;
-    gHSafeState.bblockCount++;
-
-    // Compute SHA1 for the basic block
-    sha1nfo *cb_sha1 = (sha1nfo *) &hcb->hash;
-    sha1_init(cb_sha1);
-    uint32_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
-    sha1_write(cb_sha1, (char *)hcb->insts, cbSize);
-
-    printf("\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu\n",
-           (unsigned long) *blockIndex,
-           (unsigned long long) hcb->startPc,
-           (unsigned long) hcb->currentInstIndex,
-           (unsigned long) cbSize);
-    sha1_info2hex(cb_sha1, output);
-    printf("\t>>>>>>>>>>>> Executed block SHA1=%s\n", output);
-
-    // Update xhash of the block
-    hsafe_xhash(&gHSafeState.curHash, sha1_result(&tb->hsafe_cb->hash));
-    sha1_result2hex(&gHSafeState.curHash, output);
-    printf("\t>>>>>>>>>>>> current XHASH=%s\n", output);
-  }
-
-  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTOP) {
-    tb_phys_invalidate(tb, -1);
-    gHSafeState.isActive = 0;
-    sha1_result2hex(&gHSafeState.curHash, output);
-    printf("\t>>>>> Block Signature SHA1=%s\n", output);
-    printf("Ending HSAFE BSTOP block.\n");
-  }
-
-  if (tb->hsafe_flags & CF_HSAFE_HAS_STOP) {
-    gHSafeState.isInitialized = 0;
-    printf("Ending HSAFE STOP block.\n");
-  }
-}
-
-#endif /* HSAFE */
-
 static void align_clocks(SyncClocks *sc, const CPUState *cpu)
 {
     int64_t cpu_icount;
@@ -269,10 +179,6 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr)
     CPUArchState *env = cpu->env_ptr;
     uintptr_t next_tb;
 
-#ifdef HSAFE
-    hsafe_exec_tb(cpu, tb_ptr);
-#endif /* HSAFE */
-
 #if defined(DEBUG_DISAS)
     if (qemu_loglevel_mask(CPU_LOG_TB_CPU)) {
 #if defined(TARGET_I386)
@@ -292,10 +198,6 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr)
     cpu->can_do_io = 0;
     next_tb = tcg_qemu_tb_exec(env, tb_ptr);
     cpu->can_do_io = 1;
-
-#ifdef HSAFE
-    hsafe_end_exec_tb(cpu, tb_ptr);
-#endif /* HSAFE */
 
     trace_exec_tb_exit((void *) (next_tb & ~TB_EXIT_MASK),
                        next_tb & TB_EXIT_MASK);
@@ -365,13 +267,6 @@ static TranslationBlock *tb_find_slow(CPUArchState *env,
 
     tcg_ctx.tb_ctx.tb_invalidated_flag = 0;
 
-/* #ifdef HSAFE */
-/*         if (tb->cflags & CF_HSAFE) { */
-/*           printf("tb_find_slow - CF_FLAGS.\n"); */
-/*           goto not_found; */
-/*         } */
-/* #endif /\* HSAFE *\/ */
-
     /* find translated block using physical mappings */
     phys_pc = get_page_addr_code(env, pc);
     phys_page1 = phys_pc & TARGET_PAGE_MASK;
@@ -430,13 +325,6 @@ static inline TranslationBlock *tb_find_fast(CPUArchState *env)
        is executed. */
     cpu_get_tb_cpu_state(env, &pc, &cs_base, &flags);
     tb = cpu->tb_jmp_cache[tb_jmp_cache_hash_func(pc)];
-
-/* #ifdef HSAFE */
-/*     if (tb && (tb->cflags & CF_HSAFE)) { */
-/*       printf("tb_find_fast - CF_FLAGS.\n"); */
-/*       tb = tb_gen_code(cpu, pc, cs_base, flags, 0); */
-/*     } */
-/* #endif */
 
     if (unlikely(!tb || tb->pc != pc || tb->cs_base != cs_base ||
                  tb->flags != flags)) {

@@ -335,14 +335,113 @@ static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc)
   }
 }
 
-static inline void hsafe_gen_block_end(DisasContext *s)
-{
+void helper_HSAFE_invoke_bblock_end_callback(void* param1, void* param2) {
+  TranslationBlock* tb;
+  tb = (TranslationBlock*) param2;
+
+  char output[80];
+
+  if (!tb) return;
+
+  if (gHSafeState.isInitialized && gHSafeState.isActive && tb->hsafe_cb) {
+    HSafeCodeBlock *hcb = tb->hsafe_cb;
+    // Basic block index is the prefix of the code block
+    memcpy(hcb->insts, &gHSafeState.bblockCount, sizeof(gHSafeState.bblockCount));
+    uint64_t* blockIndex = (uint64_t *)hcb->insts;
+    gHSafeState.bblockCount++;
+
+    // Compute SHA1 for the basic block
+    sha1nfo *cb_sha1 = (sha1nfo *) &hcb->hash;
+    sha1_init(cb_sha1);
+    uint32_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
+    sha1_write(cb_sha1, (char *)hcb->insts, cbSize);
+
+    printf("\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu\n",
+           (unsigned long) *blockIndex,
+           (unsigned long long) hcb->startPc,
+           (unsigned long) hcb->currentInstIndex,
+           (unsigned long) cbSize);
+    sha1_info2hex(cb_sha1, output);
+    printf("\t>>>>>>>>>>>> Executed block SHA1=%s\n", output);
+
+    // Update xhash of the block
+    hsafe_xhash(&gHSafeState.curHash, sha1_result(&tb->hsafe_cb->hash));
+    sha1_result2hex(&gHSafeState.curHash, output);
+    printf("\t>>>>>>>>>>>> current XHASH=%s\n", output);
+  }
+}
+
+void helper_HSAFE_invoke_bblock_begin_callback(void* param1, void* param2) {
+  TranslationBlock* tb;
+  tb = (TranslationBlock*) param2;
+
+  if (!tb) return;
+
+  if(tb->hsafe_flags & CF_HSAFE_HAS_INIT) {
+    // gHSafeState.isInitialized = 1;
+    printf("\tHELPER: Executing HSAFE INIT block.\n");
+  }
+
+  if (tb->hsafe_flags & CF_HSAFE_HAS_STOP) {
+    printf("\tHELPER: Executing HSAFE STOP block.\n");
+  }
+
+  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTART) {
+    printf("\tHELPER: Executing HSAFE BSTART block. HSafe Initialized = %d\n", gHSafeState.isInitialized);
+  }
+
+  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTOP) {
+    printf("\tHELPER: Executing HSAFE BSTOP block.\n");
+  }
+  return;
+}
+
+
+void helper_HSAFE_custom_ins_profile_init_callback(void *param1) {
+    TranslationBlock *tb;
+    tb = (TranslationBlock*) param1;
+    tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
+    gHSafeState.isInitialized = 1;
+    printf("\tRuntime: hsafe_profile_init. hsafe_flags=%x. HSafe Initialized = %d\n",
+      tb->hsafe_flags, gHSafeState.isInitialized);
+}
+
+void helper_HSAFE_custom_ins_profile_stop_callback(void *param1) {
+    TranslationBlock *tb;
+    tb = (TranslationBlock*) param1;
+    tb->hsafe_flags |= CF_HSAFE_HAS_STOP;
+    gHSafeState.isInitialized = 0;
+    printf("\tRuntime: hsafe_profile_stop. hsafe_flags=%x. HSafe Initialized = %d\n",
+      tb->hsafe_flags, gHSafeState.isInitialized);
+}
+
+void helper_HSAFE_custom_ins_block_begin_callback(void *param1) {
+    TranslationBlock *tb;
+    tb = (TranslationBlock*) param1;
+    tb->hsafe_flags |= CF_HSAFE_HAS_BSTART;
+    hasfe_xhashInit(&gHSafeState.curHash);
+    gHSafeState.isActive = 1;
+    gHSafeState.bblockCount = 0;
+    printf("\tRuntime: hsafe_block_begin. hsafe_flags=%x\n", tb->hsafe_flags);
+}
+
+void helper_HSAFE_custom_ins_block_end_callback(void *param1) {
+    TranslationBlock *tb;
+    char output[80];
+    tb = (TranslationBlock*) param1;
+    tb->hsafe_flags |= CF_HSAFE_HAS_BSTOP;
+
+    gHSafeState.isActive = 0;
+    sha1_result2hex(&gHSafeState.curHash, output);
+    printf("\t>>>>> Block Signature SHA1=%s\n", output);
+    printf("\tRuntime: hsafe_block_end. hsafe_flags=%x\n", tb->hsafe_flags);
 }
 
 static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
 {
     uint8_t opc = (arg >> OPSHIFT) & 0xFF;
     struct TranslationBlock *tb = s->tb;
+    TCGv_ptr tmpTb = tcg_const_ptr((tcg_target_ulong)tb);
 
     printf("hsafe_custom_instruction. hsafe_flags=%x\n", tb->hsafe_flags);
 
@@ -354,23 +453,24 @@ static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
       break;
 
     case 0x60: /* profile_init */
-      printf("\tprofile_init\n");
-      tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
+      printf("\tTranslate: profile_init\n");
+      // tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
+      gen_helper_HSAFE_custom_ins_profile_init_callback(tmpTb);
       break;
 
     case 0x61: /* profile_stop */
-      printf("\tprofile_stop\n");
-      tb->hsafe_flags |= CF_HSAFE_HAS_STOP;
+      printf("\tTranslate: profile_stop\n");
+      gen_helper_HSAFE_custom_ins_profile_stop_callback(tmpTb);
       break;
 
     case 0x62: /* profile_block_begin */
-      printf("\tprofile_block_begin\n");
-      tb->hsafe_flags |= CF_HSAFE_HAS_BSTART;
+      printf("\tTranslate: profile_block_begin\n");
+      gen_helper_HSAFE_custom_ins_block_begin_callback(tmpTb);
       break;
 
     case 0x63: /* profile_block_end */
-      printf("\tprofile_block_end\n");
-      tb->hsafe_flags |= CF_HSAFE_HAS_BSTOP;
+      printf("\tTranslate: profile_block_end\n");
+      gen_helper_HSAFE_custom_ins_block_end_callback(tmpTb);
       break;
 
     default:
@@ -504,10 +604,6 @@ static void gen_add_A0_im(DisasContext *s, int val)
 
 static inline void gen_op_jmp_v(DisasContext *s, TCGv dest)
 {
-#ifdef HSAFE
-    hsafe_gen_block_end(s);
-#endif /* HSAFE */
-
     tcg_gen_st_tl(dest, cpu_env, offsetof(CPUX86State, eip));
 }
 
@@ -2657,6 +2753,9 @@ static void gen_debug(DisasContext *s, target_ulong cur_eip)
    if needed */
 static void gen_eob(DisasContext *s)
 {
+    TranslationBlock *tb;
+    tb = s->tb;
+
 #ifdef CONFIG_S2E
     gen_instr_end(s);
 #endif
@@ -2672,6 +2771,18 @@ static void gen_eob(DisasContext *s)
     } else if (s->tf) {
         gen_helper_single_step(cpu_env);
     } else {
+#ifdef HSAFE
+        TCGv_ptr tmpTb = tcg_const_ptr((tcg_target_ulong)tb);
+        //LOK: We use tcg_temp_new since that defines a new target_ulong
+        // which can be confirmed inside tcg-op.h:2141
+        // TCGv tmpFrom = tcg_temp_new();
+        // tcg_gen_movi_tl(tmpFrom, cur_pc);  // FROM DECAF: Why do we need to generate this inst?
+
+        gen_helper_HSAFE_invoke_bblock_end_callback(cpu_env, tmpTb);
+
+        // tcg_temp_free(tmpFrom);
+        tcg_temp_free_ptr(tmpTb);
+#endif
         tcg_gen_exit_tb(0);
     }
     s->is_jmp = DISAS_TB_JUMP;
@@ -8125,6 +8236,8 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
 
 #ifdef HSAFE
     hsafe_gen_block_start(dc, pc_start);
+    TCGv_ptr tmpTb = tcg_const_ptr((tcg_target_ulong)tb);
+    gen_helper_HSAFE_invoke_bblock_begin_callback(cpu_env, tmpTb);
 #endif /* HSAFE */
 
     gen_tb_start(tb);

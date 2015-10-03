@@ -1026,14 +1026,14 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     }
 
 #ifdef HSAFE
-    if (gHSafeState.isInitialized && gHSafeState.isActive) {
+//    if (gHSafeState.isInitialized && gHSafeState.isActive) {
       tb->hsafe_cb = (HSafeCodeBlock *) malloc(sizeof(HSafeCodeBlock));
       tb->hsafe_flags = CF_HSAFE_COMPUTING_HASH;
       tb->hsafe_cb->currentInstIndex = 1;
-    } else {
-      tb->hsafe_cb = NULL;
-      tb->hsafe_flags = 0;
-    }
+//    } else {
+//      tb->hsafe_cb = NULL;
+//      tb->hsafe_flags = 0;
+//    }
 #endif /* HSAFE */
 
     tb->tc_ptr = tcg_ctx.code_gen_ptr;

@@ -18,6 +18,7 @@
  */
 
 #include "cpu.h"
+#include "tcg-op.h"
 #include "sysemu/kvm.h"
 #include "kvm_i386.h"
 #ifndef CONFIG_USER_ONLY
@@ -1276,3 +1277,4 @@ void x86_cpu_exec_exit(CPUState *cs)
 
     env->eflags = cpu_compute_eflags(env);
 }
+

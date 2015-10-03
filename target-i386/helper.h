@@ -1,6 +1,15 @@
 DEF_HELPER_FLAGS_4(cc_compute_all, TCG_CALL_NO_RWG_SE, tl, tl, tl, tl, int)
 DEF_HELPER_FLAGS_4(cc_compute_c, TCG_CALL_NO_RWG_SE, tl, tl, tl, tl, int)
 
+#ifdef HSAFE
+DEF_HELPER_2(HSAFE_invoke_bblock_end_callback, void, ptr, ptr)
+DEF_HELPER_2(HSAFE_invoke_bblock_begin_callback, void, ptr, ptr)
+DEF_HELPER_1(HSAFE_custom_ins_profile_init_callback, void, ptr)
+DEF_HELPER_1(HSAFE_custom_ins_profile_stop_callback, void, ptr)
+DEF_HELPER_1(HSAFE_custom_ins_block_begin_callback, void, ptr)
+DEF_HELPER_1(HSAFE_custom_ins_block_end_callback, void, ptr)
+#endif
+
 DEF_HELPER_0(lock, void)
 DEF_HELPER_0(unlock, void)
 DEF_HELPER_3(write_eflags, void, env, tl, i32)
@@ -217,3 +226,4 @@ DEF_HELPER_3(rcrl, tl, env, tl, tl)
 DEF_HELPER_3(rclq, tl, env, tl, tl)
 DEF_HELPER_3(rcrq, tl, env, tl, tl)
 #endif
+
