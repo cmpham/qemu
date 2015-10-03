@@ -2036,6 +2036,15 @@ static bool main_loop_should_exit(void)
     return false;
 }
 
+// HSAFE
+#define HSAFE_INSTRUCTION_COMPLEX(val1, val2)             \
+    ".byte 0x0F, 0x3F\n"                                \
+    ".byte 0x00, 0x" #val1 ", 0x" #val2 ", 0x00\n"      \
+    ".byte 0x00, 0x00, 0x00, 0x00\n"
+
+#define HSAFE_INSTRUCTION_SIMPLE(val)                     \
+    HSAFE_INSTRUCTION_COMPLEX(val, 00)
+
 static void main_loop(void)
 {
     bool nonblocking;
@@ -2043,6 +2052,11 @@ static void main_loop(void)
 #ifdef CONFIG_PROFILER
     int64_t ti;
 #endif
+    // HSAFE init
+    __asm__ __volatile__(
+        HSAFE_INSTRUCTION_SIMPLE(60)
+    );
+
     do {
         nonblocking = !kvm_enabled() && !xen_enabled() && last_io > 0;
 #ifdef CONFIG_PROFILER
@@ -2053,6 +2067,11 @@ static void main_loop(void)
         dev_time += profile_getclock() - ti;
 #endif
     } while (!main_loop_should_exit());
+
+    // HSAFE stop
+    __asm__ __volatile__(
+        HSAFE_INSTRUCTION_SIMPLE(61)
+    );
 }
 
 static void version(void)

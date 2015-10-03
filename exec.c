@@ -142,6 +142,35 @@ static void tcg_commit(MemoryListener *listener);
 static MemoryRegion io_mem_watch;
 #endif
 
+// HSAFE
+#define HSAFE_INSTRUCTION_COMPLEX(val1, val2)             \
+    ".byte 0x0F, 0x3F\n"                                \
+    ".byte 0x00, 0x" #val1 ", 0x" #val2 ", 0x00\n"      \
+    ".byte 0x00, 0x00, 0x00, 0x00\n"
+
+#define HSAFE_INSTRUCTION_SIMPLE(val)                     \
+    HSAFE_INSTRUCTION_COMPLEX(val, 00)
+
+bool address_space_rw1(AddressSpace *as, hwaddr addr, uint8_t *buf,
+                      int len, bool is_write);
+
+bool address_space_rw(AddressSpace *as, hwaddr addr, uint8_t *buf,
+                      int len, bool is_write) {
+
+  // START a block
+  __asm__ __volatile__(
+      HSAFE_INSTRUCTION_SIMPLE(62)
+  );
+
+  bool val = address_space_rw1(as, addr, buf, len, is_write);
+
+  // END a block
+  __asm__ __volatile__(
+      HSAFE_INSTRUCTION_SIMPLE(63)
+  );
+  return val;
+}
+
 #if !defined(CONFIG_USER_ONLY)
 
 static void phys_map_node_reserve(PhysPageMap *map, unsigned nodes)
@@ -1993,7 +2022,7 @@ static int memory_access_size(MemoryRegion *mr, unsigned l, hwaddr addr)
     return l;
 }
 
-bool address_space_rw(AddressSpace *as, hwaddr addr, uint8_t *buf,
+bool address_space_rw1(AddressSpace *as, hwaddr addr, uint8_t *buf,
                       int len, bool is_write)
 {
     hwaddr l;
