@@ -11,6 +11,16 @@
 #include <stdint.h>
 #include "hsafe/sha1.h"
 
+// Debug functions
+#define HSAFE_DEBUG_LEVEL 7
+#ifdef HSAFE_DEBUG_LEVEL
+    #define DEBUG_PRINT(level, msg, args...) \
+        if (level <= HSAFE_DEBUG_LEVEL) \
+            printf(msg, ## args)
+#else
+    #define DEBUG_PRINT(level, msg, args...) if (0);
+#endif
+
 #define OPSHIFT 8
 
 #define HSAFE_MAX_BLOCK_LENGTH 2048 /* Maximum of number of instructions, longer blocks will be cut-off  */

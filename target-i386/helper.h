@@ -8,6 +8,8 @@ DEF_HELPER_1(HSAFE_custom_ins_profile_init_callback, void, ptr)
 DEF_HELPER_1(HSAFE_custom_ins_profile_stop_callback, void, ptr)
 DEF_HELPER_1(HSAFE_custom_ins_block_begin_callback, void, ptr)
 DEF_HELPER_1(HSAFE_custom_ins_block_end_callback, void, ptr)
+
+DEF_HELPER_3(HSAFE_raise_interrupt, void, env, int, int)
 #endif
 
 DEF_HELPER_0(lock, void)

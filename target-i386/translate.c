@@ -304,27 +304,34 @@ static inline void hsafe_gen_instr_end(CPUX86State *env, DisasContext *s, struct
         HSafeCodeBlock* cb = tb->hsafe_cb;
 
         if (cb->currentInstIndex < HSAFE_MAX_BLOCK_LENGTH) {
-        int64_t ins_len = 1;
-        if (s->useNextPc) {
-          ins_len = s->nextPc - s->insPc;
-          if (ins_len > HSAFE_MAX_INST_LENGTH) ins_len = HSAFE_MAX_INST_LENGTH;
-        }
+          int64_t ins_len = 1;
+          if (s->useNextPc) {
+            ins_len = s->nextPc - s->insPc;
+            if (ins_len > HSAFE_MAX_INST_LENGTH) ins_len = HSAFE_MAX_INST_LENGTH;
+          }
 
-        cb->insts[cb->currentInstIndex].addr = (uint16_t)(s->insPc & HSAFE_ADDR_MASK);
-        printf("\t>>>>>>>>>>>>>>>>>> Ints[%03ld - 0x%04x] len=%03ld: ",
-               (unsigned long) cb->currentInstIndex,
-               (unsigned int) cb->insts[cb->currentInstIndex].addr,
-               (unsigned long) ins_len);
-        for (i = 0; i < ins_len; ++i) {
-          cb->insts[cb->currentInstIndex].mem[i] = cpu_ldub_code(env, s->insPc + i);
-          printf("%x ", cb->insts[cb->currentInstIndex].mem[i]);
-        }
-        printf("\n");
-        cb->currentInstIndex++;
+          cb->insts[cb->currentInstIndex].addr = (uint16_t)(s->insPc & HSAFE_ADDR_MASK);
+          DEBUG_PRINT(15, "\t>>>>>>>>>>>>>>>>>> Ints[%03ld - 0x%04x] len=%03ld: ",
+                (unsigned long) cb->currentInstIndex,
+                (unsigned int) cb->insts[cb->currentInstIndex].addr,
+                (unsigned long) ins_len);
+          for (i = 0; i < ins_len; ++i) {
+            cb->insts[cb->currentInstIndex].mem[i] = cpu_ldub_code(env, s->insPc + i);
+            DEBUG_PRINT(15, "%x ", cb->insts[cb->currentInstIndex].mem[i]);
+          }
+          DEBUG_PRINT(15, "\n");
+          cb->currentInstIndex++;
         }
     }
     s->done_instr_end = 1;
   }
+}
+
+void helper_HSAFE_raise_interrupt(CPUX86State *env, int intno, int next_eip_addend)
+{
+  // if (gHSafeState.isInitialized && gHSafeState.isActive) {
+    DEBUG_PRINT(10, "\tRuntime: Interrupt %d\n", intno);
+  // }
 }
 
 static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc)
@@ -343,7 +350,14 @@ void helper_HSAFE_invoke_bblock_end_callback(void* param1, void* param2) {
 
   if (!tb) return;
 
+
   if (gHSafeState.isInitialized && gHSafeState.isActive && tb->hsafe_cb) {
+
+    if (tb->hsafe_cb->startPc >= 0xc0000000) {
+      DEBUG_PRINT(5, "Ignoring kernel bb 0x%llx\n", (unsigned long long) tb->hsafe_cb->startPc);
+      return;
+    }
+
     HSafeCodeBlock *hcb = tb->hsafe_cb;
     // Basic block index is the prefix of the code block
     memcpy(hcb->insts, &gHSafeState.bblockCount, sizeof(gHSafeState.bblockCount));
@@ -356,18 +370,18 @@ void helper_HSAFE_invoke_bblock_end_callback(void* param1, void* param2) {
     uint32_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
     sha1_write(cb_sha1, (char *)hcb->insts, cbSize);
 
-    printf("\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu\n",
+    DEBUG_PRINT(4, "\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu\n",
            (unsigned long) *blockIndex,
            (unsigned long long) hcb->startPc,
            (unsigned long) hcb->currentInstIndex,
            (unsigned long) cbSize);
     sha1_info2hex(cb_sha1, output);
-    printf("\t>>>>>>>>>>>> Executed block SHA1=%s\n", output);
+    DEBUG_PRINT(4, "\t>>>>>>>>>>>> Executed block SHA1=%s\n", output);
 
     // Update xhash of the block
     hsafe_xhash(&gHSafeState.curHash, sha1_result(&tb->hsafe_cb->hash));
     sha1_result2hex(&gHSafeState.curHash, output);
-    printf("\t>>>>>>>>>>>> current XHASH=%s\n", output);
+    DEBUG_PRINT(4, "\t>>>>>>>>>>>> current XHASH=%s\n", output);
   }
 }
 
@@ -379,19 +393,20 @@ void helper_HSAFE_invoke_bblock_begin_callback(void* param1, void* param2) {
 
   if(tb->hsafe_flags & CF_HSAFE_HAS_INIT) {
     // gHSafeState.isInitialized = 1;
-    printf("\tHELPER: Executing HSAFE INIT block.\n");
+    DEBUG_PRINT(10, "\tHELPER: Executing HSAFE INIT block.\n");
   }
 
   if (tb->hsafe_flags & CF_HSAFE_HAS_STOP) {
-    printf("\tHELPER: Executing HSAFE STOP block.\n");
+    DEBUG_PRINT(10, "\tHELPER: Executing HSAFE STOP block.\n");
   }
 
   if (tb->hsafe_flags & CF_HSAFE_HAS_BSTART) {
-    printf("\tHELPER: Executing HSAFE BSTART block. HSafe Initialized = %d\n", gHSafeState.isInitialized);
+    DEBUG_PRINT(10, "\tHELPER: Executing HSAFE BSTART block. HSafe Initialized = %d\n",
+      gHSafeState.isInitialized);
   }
 
   if (tb->hsafe_flags & CF_HSAFE_HAS_BSTOP) {
-    printf("\tHELPER: Executing HSAFE BSTOP block.\n");
+    DEBUG_PRINT(10, "\tHELPER: Executing HSAFE BSTOP block.\n");
   }
   return;
 }
@@ -402,7 +417,7 @@ void helper_HSAFE_custom_ins_profile_init_callback(void *param1) {
     tb = (TranslationBlock*) param1;
     tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
     gHSafeState.isInitialized = 1;
-    printf("\tRuntime: hsafe_profile_init. hsafe_flags=%x. HSafe Initialized = %d\n",
+    DEBUG_PRINT(10, "\tRuntime: hsafe_profile_init. hsafe_flags=%x. HSafe Initialized = %d\n",
       tb->hsafe_flags, gHSafeState.isInitialized);
 }
 
@@ -411,7 +426,7 @@ void helper_HSAFE_custom_ins_profile_stop_callback(void *param1) {
     tb = (TranslationBlock*) param1;
     tb->hsafe_flags |= CF_HSAFE_HAS_STOP;
     gHSafeState.isInitialized = 0;
-    printf("\tRuntime: hsafe_profile_stop. hsafe_flags=%x. HSafe Initialized = %d\n",
+    DEBUG_PRINT(10, "\tRuntime: hsafe_profile_stop. hsafe_flags=%x. HSafe Initialized = %d\n",
       tb->hsafe_flags, gHSafeState.isInitialized);
 }
 
@@ -422,7 +437,7 @@ void helper_HSAFE_custom_ins_block_begin_callback(void *param1) {
     hasfe_xhashInit(&gHSafeState.curHash);
     gHSafeState.isActive = 1;
     gHSafeState.bblockCount = 0;
-    printf("\tRuntime: hsafe_block_begin. hsafe_flags=%x\n", tb->hsafe_flags);
+    DEBUG_PRINT(10, "\tRuntime: hsafe_block_begin. hsafe_flags=%x\n", tb->hsafe_flags);
 }
 
 void helper_HSAFE_custom_ins_block_end_callback(void *param1) {
@@ -433,8 +448,8 @@ void helper_HSAFE_custom_ins_block_end_callback(void *param1) {
 
     gHSafeState.isActive = 0;
     sha1_result2hex(&gHSafeState.curHash, output);
-    printf("\t>>>>> Block Signature SHA1=%s\n", output);
-    printf("\tRuntime: hsafe_block_end. hsafe_flags=%x\n", tb->hsafe_flags);
+    DEBUG_PRINT(1, "\t>>>>> Block Signature SHA1=%s\n", output);
+    DEBUG_PRINT(10, "\tRuntime: hsafe_block_end. hsafe_flags=%x\n", tb->hsafe_flags);
 }
 
 static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
@@ -443,40 +458,40 @@ static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
     struct TranslationBlock *tb = s->tb;
     TCGv_ptr tmpTb = tcg_const_ptr((tcg_target_ulong)tb);
 
-    printf("hsafe_custom_instruction. hsafe_flags=%x\n", tb->hsafe_flags);
+    DEBUG_PRINT(10, "hsafe_custom_instruction. hsafe_flags=%x\n", tb->hsafe_flags);
 
     switch(opc) {
     case 0x00: /* verify hsafe mode */
-      printf("\thsafe_check\n");
+      DEBUG_PRINT(10, "\thsafe_check\n");
       TCGv_i32 v = tcg_const_i32(0x1);
       gen_op_mov_reg_v(MO_32, R_EAX, v);
       break;
 
     case 0x60: /* profile_init */
-      printf("\tTranslate: profile_init\n");
+      DEBUG_PRINT(10, "\tTranslate: profile_init\n");
       // tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
       gen_helper_HSAFE_custom_ins_profile_init_callback(tmpTb);
       break;
 
     case 0x61: /* profile_stop */
-      printf("\tTranslate: profile_stop\n");
+      DEBUG_PRINT(10, "\tTranslate: profile_stop\n");
       gen_helper_HSAFE_custom_ins_profile_stop_callback(tmpTb);
       break;
 
     case 0x62: /* profile_block_begin */
-      printf("\tTranslate: profile_block_begin\n");
+      DEBUG_PRINT(10, "\tTranslate: profile_block_begin\n");
       gen_helper_HSAFE_custom_ins_block_begin_callback(tmpTb);
       break;
 
     case 0x63: /* profile_block_end */
-      printf("\tTranslate: profile_block_end\n");
+      DEBUG_PRINT(10, "\tTranslate: profile_block_end\n");
       gen_helper_HSAFE_custom_ins_block_end_callback(tmpTb);
       break;
 
     default:
-      printf("\tUnsupported opcode\n");
+      DEBUG_PRINT(1, "\tUnsupported opcode\n");
     }
-    printf("hsafe_custom_instruction. Updated hsafe_flags=%x\n", tb->hsafe_flags);
+    DEBUG_PRINT(10, "hsafe_custom_instruction. Updated hsafe_flags=%x\n", tb->hsafe_flags);
 }
 
 #endif /* HSAFE */
