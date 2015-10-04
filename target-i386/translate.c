@@ -296,8 +296,9 @@ static void gen_update_cc_op(DisasContext *s)
 static inline void gen_op_mov_v_reg(TCGMemOp ot, TCGv t0, int reg);
 static void gen_op_mov_reg_v(TCGMemOp ot, int reg, TCGv t0);
 
-static inline void hsafe_gen_instr_end(CPUX86State *env, DisasContext *s, struct TranslationBlock *tb)
-{
+static inline void hsafe_gen_instr_end(CPUX86State *env,
+                                       DisasContext *s,
+				       struct TranslationBlock *tb) {
   int i;
   if (s && !s->done_instr_end) {
     if (tb && tb->hsafe_cb) {
@@ -327,16 +328,13 @@ static inline void hsafe_gen_instr_end(CPUX86State *env, DisasContext *s, struct
   }
 }
 
-void helper_HSAFE_raise_interrupt(CPUX86State *env, int intno, int next_eip_addend)
-{
-  // if (gHSafeState.isInitialized && gHSafeState.isActive) {
+void helper_HSAFE_raise_interrupt(CPUX86State *env, int intno, int next_eip_addend) {
     DEBUG_PRINT(10, "\tRuntime: Interrupt %d\n", intno);
-  // }
 }
 
-static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc)
-{
+static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc) {
   if (s && s->tb && s->tb->hsafe_cb) {
+    DEBUG_PRINT(10, "\tTranslate: block_start.\n");
     s->tb->hsafe_cb->currentInstIndex = 1;
     s->tb->hsafe_cb->startPc = pc;
   }
@@ -349,7 +347,6 @@ void helper_HSAFE_invoke_bblock_end_callback(void* param1, void* param2) {
   char output[80];
 
   if (!tb) return;
-
 
   if (gHSafeState.isInitialized && gHSafeState.isActive && tb->hsafe_cb) {
 
@@ -384,33 +381,6 @@ void helper_HSAFE_invoke_bblock_end_callback(void* param1, void* param2) {
     DEBUG_PRINT(4, "\t>>>>>>>>>>>> current XHASH=%s\n", output);
   }
 }
-
-void helper_HSAFE_invoke_bblock_begin_callback(void* param1, void* param2) {
-  TranslationBlock* tb;
-  tb = (TranslationBlock*) param2;
-
-  if (!tb) return;
-
-  if(tb->hsafe_flags & CF_HSAFE_HAS_INIT) {
-    // gHSafeState.isInitialized = 1;
-    DEBUG_PRINT(10, "\tHELPER: Executing HSAFE INIT block.\n");
-  }
-
-  if (tb->hsafe_flags & CF_HSAFE_HAS_STOP) {
-    DEBUG_PRINT(10, "\tHELPER: Executing HSAFE STOP block.\n");
-  }
-
-  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTART) {
-    DEBUG_PRINT(10, "\tHELPER: Executing HSAFE BSTART block. HSafe Initialized = %d\n",
-      gHSafeState.isInitialized);
-  }
-
-  if (tb->hsafe_flags & CF_HSAFE_HAS_BSTOP) {
-    DEBUG_PRINT(10, "\tHELPER: Executing HSAFE BSTOP block.\n");
-  }
-  return;
-}
-
 
 void helper_HSAFE_custom_ins_profile_init_callback(void *param1) {
     TranslationBlock *tb;
@@ -8251,8 +8221,6 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
 
 #ifdef HSAFE
     hsafe_gen_block_start(dc, pc_start);
-    TCGv_ptr tmpTb = tcg_const_ptr((tcg_target_ulong)tb);
-    gen_helper_HSAFE_invoke_bblock_begin_callback(cpu_env, tmpTb);
 #endif /* HSAFE */
 
     gen_tb_start(tb);
