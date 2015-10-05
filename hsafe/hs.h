@@ -12,7 +12,7 @@
 #include "hsafe/sha1.h"
 
 // Debug functions
-#define HSAFE_DEBUG_LEVEL 7
+#define HSAFE_DEBUG_LEVEL 2
 #ifdef HSAFE_DEBUG_LEVEL
     #define DEBUG_PRINT(level, msg, args...) \
         if (level <= HSAFE_DEBUG_LEVEL) \

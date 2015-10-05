@@ -1027,7 +1027,9 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
 
 #ifdef HSAFE
 //    if (gHSafeState.isInitialized && gHSafeState.isActive) {
-      tb->hsafe_cb = (HSafeCodeBlock *) malloc(sizeof(HSafeCodeBlock));
+      if (!tb->hsafe_cb) {
+        tb->hsafe_cb = (HSafeCodeBlock *) malloc(sizeof(HSafeCodeBlock));
+      }
       tb->hsafe_flags = CF_HSAFE_COMPUTING_HASH;
       tb->hsafe_cb->currentInstIndex = 1;
 //    } else {
