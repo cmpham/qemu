@@ -23,9 +23,9 @@
 
 #define OPSHIFT 8
 
-#define HSAFE_MAX_BLOCK_LENGTH 2048 /* Maximum of number of instructions, longer blocks will be cut-off  */
+#define HSAFE_MAX_BLOCK_LENGTH 256 /* Maximum of number of instructions, longer blocks will be cut-off  */
 #define HSAFE_MAX_INST_LENGTH 16 /* Length of an instruction in bytes */
-#define HSAFE_ADDR_MASK 0xFFFF
+#define HSAFE_ADDR_MASK 0xFF
 
 typedef struct HSafeInstruction {
   uint16_t addr;
@@ -35,7 +35,7 @@ typedef struct HSafeInstruction {
 // We utilize the first HSafeInstruction to store the block index.
 // This helps with memory alignment in sha1 calculation.
 typedef struct HSafeCodeBlock {
-  struct HSafeInstruction insts[HSAFE_MAX_BLOCK_LENGTH];
+  HSafeInstruction *insts; //[HSAFE_MAX_BLOCK_LENGTH];
   uint64_t startPc;
   uint64_t currentInstIndex;
   sha1nfo hash;

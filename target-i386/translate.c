@@ -296,12 +296,12 @@ static void gen_update_cc_op(DisasContext *s)
 static inline void gen_op_mov_v_reg(TCGMemOp ot, TCGv t0, int reg);
 static void gen_op_mov_reg_v(TCGMemOp ot, int reg, TCGv t0);
 
-static inline void hsafe_gen_instr_end(CPUX86State *env,
+static void hsafe_gen_instr_end(CPUX86State *env,
                                        DisasContext *s,
 				       struct TranslationBlock *tb) {
   int i;
   if (s && !s->done_instr_end) {
-    if (tb && tb->hsafe_cb) {
+    if (tb && tb->hsafe_cb && tb->hsafe_cb->insts) {
         HSafeCodeBlock* cb = tb->hsafe_cb;
 
         if (cb->currentInstIndex < HSAFE_MAX_BLOCK_LENGTH) {
@@ -335,6 +335,12 @@ void helper_HSAFE_raise_interrupt(CPUX86State *env, int intno, int next_eip_adde
 static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc) {
   if (s && s->tb && s->tb->hsafe_cb) {
     DEBUG_PRINT(10, "\tTranslate: block_start.\n");
+    if (s->tb->hsafe_cb->startPc >= 0xc0000000) {
+      DEBUG_PRINT(5, "Ignoring kernel bb 0x%llx\n", (unsigned long long) s->tb->hsafe_cb->startPc);
+      return;
+    }
+   
+    s->tb->hsafe_cb->insts = (HSafeInstruction *) malloc(sizeof(HSafeCodeBlock) * HSAFE_MAX_BLOCK_LENGTH);
     s->tb->hsafe_cb->currentInstIndex = 1;
     s->tb->hsafe_cb->startPc = pc;
   }
@@ -348,12 +354,7 @@ void helper_HSAFE_invoke_bblock_end_callback(void* param1, void* param2) {
 
   if (!tb) return;
 
-  if (gHSafeState.isInitialized && gHSafeState.isActive && tb->hsafe_cb) {
-
-    if (tb->hsafe_cb->startPc >= 0xc0000000) {
-      DEBUG_PRINT(5, "Ignoring kernel bb 0x%llx\n", (unsigned long long) tb->hsafe_cb->startPc);
-      return;
-    }
+  if (gHSafeState.isInitialized && gHSafeState.isActive && tb->hsafe_cb && tb->hsafe_cb->insts) {
 
     HSafeCodeBlock *hcb = tb->hsafe_cb;
     // Basic block index is the prefix of the code block

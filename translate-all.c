@@ -730,6 +730,11 @@ void tb_free(TranslationBlock *tb)
         tcg_ctx.code_gen_ptr = tb->tc_ptr;
         tcg_ctx.tb_ctx.nb_tbs--;
     }
+
+    if (tb->hsafe_cb && tb->hsafe_cb->insts) {
+        free(tb->hsafe_cb->insts);
+        tb->hsafe_cb->insts = NULL;
+    }
 }
 
 static inline void invalidate_page_bitmap(PageDesc *p)
@@ -1026,16 +1031,12 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     }
 
 #ifdef HSAFE
-//    if (gHSafeState.isInitialized && gHSafeState.isActive) {
       if (!tb->hsafe_cb) {
         tb->hsafe_cb = (HSafeCodeBlock *) malloc(sizeof(HSafeCodeBlock));
+        tb->hsafe_cb->insts = NULL;
       }
       tb->hsafe_flags = CF_HSAFE_COMPUTING_HASH;
       tb->hsafe_cb->currentInstIndex = 1;
-//    } else {
-//      tb->hsafe_cb = NULL;
-//      tb->hsafe_flags = 0;
-//    }
 #endif /* HSAFE */
 
     tb->tc_ptr = tcg_ctx.code_gen_ptr;
