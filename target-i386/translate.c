@@ -297,11 +297,12 @@ static inline void gen_op_mov_v_reg(TCGMemOp ot, TCGv t0, int reg);
 static void gen_op_mov_reg_v(TCGMemOp ot, int reg, TCGv t0);
 
 static void hsafe_gen_instr_end(CPUX86State *env,
-                                       DisasContext *s,
-				       struct TranslationBlock *tb) {
+                                DisasContext *s,
+				struct TranslationBlock *tb) {
   int i;
   if (s && !s->done_instr_end) {
-    if (tb && tb->hsafe_cb && tb->hsafe_cb->insts) {
+    if (tb && tb->hsafe_cb && tb->hsafe_cb->insts &&
+        (gHSafeState.targetCr3 == env->cr[3])) {
         HSafeCodeBlock* cb = tb->hsafe_cb;
 
         if (cb->currentInstIndex < HSAFE_MAX_BLOCK_LENGTH) {
@@ -346,7 +347,7 @@ static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc) {
   }
 }
 
-void helper_HSAFE_invoke_bblock_end_callback(void* param1, void* param2) {
+void helper_HSAFE_invoke_bblock_end_callback(CPUX86State *env, void* param2) {
   TranslationBlock* tb;
   tb = (TranslationBlock*) param2;
 
@@ -354,8 +355,13 @@ void helper_HSAFE_invoke_bblock_end_callback(void* param1, void* param2) {
 
   if (!tb) return;
 
-  if (gHSafeState.isInitialized && gHSafeState.isActive && tb->hsafe_cb && tb->hsafe_cb->insts) {
+  if (gHSafeState.isInitialized && gHSafeState.isActive &&
+      tb->hsafe_cb && tb->hsafe_cb->insts) {
 
+    if (gHSafeState.targetCr3 != env->cr[3]) {
+      DEBUG_PRINT(5, "Process switched 0x%llx\n", (unsigned long long) env->cr[3]);
+      return;
+    }
     HSafeCodeBlock *hcb = tb->hsafe_cb;
     // Basic block index is the prefix of the code block
     memcpy(hcb->insts, &gHSafeState.bblockCount, sizeof(gHSafeState.bblockCount));
@@ -368,11 +374,12 @@ void helper_HSAFE_invoke_bblock_end_callback(void* param1, void* param2) {
     uint32_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
     sha1_write(cb_sha1, (char *)hcb->insts, cbSize);
 
-    DEBUG_PRINT(4, "\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu\n",
+    DEBUG_PRINT(4, "\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu; cr3=0x%llx\n",
            (unsigned long) *blockIndex,
            (unsigned long long) hcb->startPc,
            (unsigned long) hcb->currentInstIndex,
-           (unsigned long) cbSize);
+           (unsigned long) cbSize,
+           (unsigned long long) env->cr[3]);
     sha1_info2hex(cb_sha1, output);
     DEBUG_PRINT(4, "\t>>>>>>>>>>>> Executed block SHA1=%s\n", output);
 
@@ -383,11 +390,12 @@ void helper_HSAFE_invoke_bblock_end_callback(void* param1, void* param2) {
   }
 }
 
-void helper_HSAFE_custom_ins_profile_init_callback(void *param1) {
+void helper_HSAFE_custom_ins_profile_init_callback(void *param1, CPUX86State *env) {
     TranslationBlock *tb;
     tb = (TranslationBlock*) param1;
     tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
     gHSafeState.isInitialized = 1;
+    gHSafeState.targetCr3 = env->cr[3];
     DEBUG_PRINT(10, "\tRuntime: hsafe_profile_init. hsafe_flags=%x. HSafe Initialized = %d\n",
       tb->hsafe_flags, gHSafeState.isInitialized);
 }
@@ -423,7 +431,7 @@ void helper_HSAFE_custom_ins_block_end_callback(void *param1) {
     DEBUG_PRINT(10, "\tRuntime: hsafe_block_end. hsafe_flags=%x\n", tb->hsafe_flags);
 }
 
-static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
+static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg, CPUX86State *env)
 {
     uint8_t opc = (arg >> OPSHIFT) & 0xFF;
     struct TranslationBlock *tb = s->tb;
@@ -441,7 +449,7 @@ static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg)
     case 0x60: /* profile_init */
       DEBUG_PRINT(10, "\tTranslate: profile_init\n");
       // tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
-      gen_helper_HSAFE_custom_ins_profile_init_callback(tmpTb);
+      gen_helper_HSAFE_custom_ins_profile_init_callback(tmpTb, cpu_env);
       break;
 
     case 0x61: /* profile_stop */
@@ -4785,7 +4793,7 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
         {
 #ifdef HSAFE
           target_ulong arg = cpu_ldq_code(env, s->pc);
-          hsafe_custom_instruction(s, arg);
+          hsafe_custom_instruction(s, arg, env);
 #else
           /* Simply skip the this custom inst when building vanilla qemu */
           cpu_ldq_code(env, s->pc);

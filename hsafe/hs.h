@@ -35,7 +35,7 @@ typedef struct HSafeInstruction {
 // We utilize the first HSafeInstruction to store the block index.
 // This helps with memory alignment in sha1 calculation.
 typedef struct HSafeCodeBlock {
-  HSafeInstruction *insts; //[HSAFE_MAX_BLOCK_LENGTH];
+  HSafeInstruction *insts; // size HSAFE_MAX_BLOCK_LENGTH
   uint64_t startPc;
   uint64_t currentInstIndex;
   sha1nfo hash;
@@ -46,6 +46,7 @@ typedef struct HSafeGlobalState {
   uint8_t isInitialized;
   uint8_t isActive;
   uint64_t bblockCount;
+  uint64_t targetCr3;
   sha1result curHash;
 } HSafeGlobalState;
 
