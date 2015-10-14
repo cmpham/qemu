@@ -335,7 +335,8 @@ void helper_HSAFE_raise_interrupt(CPUX86State *env, int intno, int next_eip_adde
 
 static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc) {
   if (s && s->tb && s->tb->hsafe_cb) {
-    DEBUG_PRINT(10, "\tTranslate: block_start.\n");
+    s->tb->hsafe_cb->startPc = pc;
+    DEBUG_PRINT(10, "\tTranslate: block_start 0x%llx\n", (unsigned long long) s->tb->hsafe_cb->startPc);
     if (s->tb->hsafe_cb->startPc >= 0xc0000000) {
       DEBUG_PRINT(5, "Ignoring kernel bb 0x%llx\n", (unsigned long long) s->tb->hsafe_cb->startPc);
       return;
@@ -343,7 +344,6 @@ static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc) {
    
     s->tb->hsafe_cb->insts = (HSafeInstruction *) malloc(sizeof(HSafeCodeBlock) * HSAFE_MAX_BLOCK_LENGTH);
     s->tb->hsafe_cb->currentInstIndex = 1;
-    s->tb->hsafe_cb->startPc = pc;
   }
 }
 
@@ -427,7 +427,7 @@ void helper_HSAFE_custom_ins_block_end_callback(void *param1) {
 
     gHSafeState.isActive = 0;
     sha1_result2hex(&gHSafeState.curHash, output);
-    DEBUG_PRINT(1, "\t>>>>> Block Signature SHA1=%s\n", output);
+    DEBUG_PRINT(1, "H=%s\n", output);
     DEBUG_PRINT(10, "\tRuntime: hsafe_block_end. hsafe_flags=%x\n", tb->hsafe_flags);
 }
 
