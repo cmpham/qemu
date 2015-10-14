@@ -11,9 +11,11 @@
 #include <inttypes.h>
 
 HSafeGlobalState gHSafeState;
+FILE *hsafe_output;
 
 void hsafe_init(void) {
     printf("Initializing HSafe global state.\n");
+    hsafe_output = fopen(HSAFE_OUTPUT_FILENAME, "w");
     gHSafeState.isInitialized = 0;
     gHSafeState.isActive = 0;
 }

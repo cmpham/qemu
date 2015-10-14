@@ -9,6 +9,7 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include <stdint.h>
+#include <stdio.h>
 #include "hsafe/sha1.h"
 
 // Debug functions
@@ -16,7 +17,7 @@
 #ifdef HSAFE_DEBUG_LEVEL
     #define DEBUG_PRINT(level, msg, args...) \
         if (level <= HSAFE_DEBUG_LEVEL) \
-            printf(msg, ## args)
+            fprintf(hsafe_output, msg, ## args)
 #else
     #define DEBUG_PRINT(level, msg, args...) if (0);
 #endif
@@ -26,6 +27,8 @@
 #define HSAFE_MAX_BLOCK_LENGTH 256 /* Maximum of number of instructions, longer blocks will be cut-off  */
 #define HSAFE_MAX_INST_LENGTH 16 /* Length of an instruction in bytes */
 #define HSAFE_ADDR_MASK 0xFF
+
+#define HSAFE_OUTPUT_FILENAME "/run/shm/hs.log"
 
 typedef struct HSafeInstruction {
   uint16_t addr;
@@ -49,6 +52,8 @@ typedef struct HSafeGlobalState {
   uint64_t targetCr3;
   sha1result curHash;
 } HSafeGlobalState;
+
+extern FILE *hsafe_output;
 
 extern HSafeGlobalState gHSafeState;
 
