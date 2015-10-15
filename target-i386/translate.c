@@ -301,8 +301,7 @@ static void hsafe_gen_instr_end(CPUX86State *env,
 				struct TranslationBlock *tb) {
   int i;
   if (s && !s->done_instr_end) {
-    if (tb && tb->hsafe_cb && tb->hsafe_cb->insts &&
-        (gHSafeState.targetCr3 == env->cr[3])) {
+    if (tb && tb->hsafe_cb && tb->hsafe_cb->insts && tb->hsafe_cb->startPc && (gHSafeState.targetCr3 == env->cr[3])) {
         HSafeCodeBlock* cb = tb->hsafe_cb;
 
         if (cb->currentInstIndex < HSAFE_MAX_BLOCK_LENGTH) {
@@ -335,14 +334,16 @@ void helper_HSAFE_raise_interrupt(CPUX86State *env, int intno, int next_eip_adde
 
 static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc) {
   if (s && s->tb && s->tb->hsafe_cb) {
-    s->tb->hsafe_cb->startPc = pc;
-    DEBUG_PRINT(10, "\tTranslate: block_start 0x%llx\n", (unsigned long long) s->tb->hsafe_cb->startPc);
-    if (s->tb->hsafe_cb->startPc >= 0xc0000000) {
-      DEBUG_PRINT(5, "Ignoring kernel bb 0x%llx\n", (unsigned long long) s->tb->hsafe_cb->startPc);
+    if ((pc >= 0xc0000000) || (pc <= 0x10000000)) {
+      DEBUG_PRINT(16, "Ignoring kernel bb 0x%llx\n", (unsigned long long) s->tb->hsafe_cb->startPc);
+      s->tb->hsafe_cb->startPc = 0;
       return;
     }
-   
-    s->tb->hsafe_cb->insts = (HSafeInstruction *) malloc(sizeof(HSafeCodeBlock) * HSAFE_MAX_BLOCK_LENGTH);
+    DEBUG_PRINT(15, "\tTranslate: block_start 0x%llx\n", (unsigned long long) s->tb->hsafe_cb->startPc);
+    if (!s->tb->hsafe_cb->insts) {
+      s->tb->hsafe_cb->insts = (HSafeInstruction *) malloc(sizeof(HSafeCodeBlock) * HSAFE_MAX_BLOCK_LENGTH);
+    }
+    s->tb->hsafe_cb->startPc = pc;
     s->tb->hsafe_cb->currentInstIndex = 1;
   }
 }
@@ -356,7 +357,7 @@ void helper_HSAFE_invoke_bblock_end_callback(CPUX86State *env, void* param2) {
   if (!tb) return;
 
   if (gHSafeState.isInitialized && gHSafeState.isActive &&
-      tb->hsafe_cb && tb->hsafe_cb->insts) {
+      tb->hsafe_cb && tb->hsafe_cb->insts && tb->hsafe_cb->startPc) {
 
     if (gHSafeState.targetCr3 != env->cr[3]) {
       DEBUG_PRINT(5, "Process switched 0x%llx\n", (unsigned long long) env->cr[3]);
