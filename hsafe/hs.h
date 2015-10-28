@@ -16,8 +16,10 @@
 #define HSAFE_DEBUG_LEVEL 2
 #ifdef HSAFE_DEBUG_LEVEL
     #define DEBUG_PRINT(level, msg, args...) \
-        if (level <= HSAFE_DEBUG_LEVEL) \
-            fprintf(hsafe_output, msg, ## args)
+        if (level <= HSAFE_DEBUG_LEVEL) { \
+            fprintf(hsafe_output, msg, ## args); \
+            update_linecount(); \
+        }
 #else
     #define DEBUG_PRINT(level, msg, args...) if (0);
 #endif
@@ -53,7 +55,10 @@ typedef struct HSafeGlobalState {
   sha1result curHash;
 } HSafeGlobalState;
 
+#define MAX_LINE_PER_FILE 10000000
 extern FILE *hsafe_output;
+extern long hsafe_linecount;
+void update_linecount(void);
 
 extern HSafeGlobalState gHSafeState;
 
