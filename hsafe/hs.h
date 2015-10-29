@@ -13,11 +13,13 @@
 #include "hsafe/sha1.h"
 
 // Debug functions
-#define HSAFE_DEBUG_LEVEL 2
+#define HSAFE_DEBUG_LEVEL 5
 #ifdef HSAFE_DEBUG_LEVEL
     #define DEBUG_PRINT(level, msg, args...) \
-        if (level <= HSAFE_DEBUG_LEVEL) \
-            fprintf(hsafe_output, msg, ## args)
+        if (level <= HSAFE_DEBUG_LEVEL) { \
+            fprintf(hsafe_output, msg, ## args); \
+            update_linecount(); \
+        }
 #else
     #define DEBUG_PRINT(level, msg, args...) if (0);
 #endif
@@ -28,7 +30,7 @@
 #define HSAFE_MAX_INST_LENGTH 16 /* Length of an instruction in bytes */
 #define HSAFE_ADDR_MASK 0xFF
 
-#define HSAFE_OUTPUT_FILENAME "/run/shm/hs.log"
+#define HSAFE_OUTPUT_FILENAME "hs.log"
 
 typedef struct HSafeInstruction {
   uint16_t addr;
@@ -53,7 +55,10 @@ typedef struct HSafeGlobalState {
   sha1result curHash;
 } HSafeGlobalState;
 
+#define MAX_LINE_PER_FILE 100000000
 extern FILE *hsafe_output;
+extern long hsafe_linecount;
+void update_linecount(void);
 
 extern HSafeGlobalState gHSafeState;
 

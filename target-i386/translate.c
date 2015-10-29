@@ -296,37 +296,37 @@ static void gen_update_cc_op(DisasContext *s)
 static inline void gen_op_mov_v_reg(TCGMemOp ot, TCGv t0, int reg);
 static void gen_op_mov_reg_v(TCGMemOp ot, int reg, TCGv t0);
 
-static void hsafe_gen_instr_end(CPUX86State *env,
-                                DisasContext *s,
-				struct TranslationBlock *tb) {
-  int i;
-  if (s && !s->done_instr_end) {
-    if (tb && tb->hsafe_cb && tb->hsafe_cb->insts && tb->hsafe_cb->startPc && (gHSafeState.targetCr3 == env->cr[3])) {
-        HSafeCodeBlock* cb = tb->hsafe_cb;
-
-        if (cb->currentInstIndex < HSAFE_MAX_BLOCK_LENGTH) {
-          int64_t ins_len = 1;
-          if (s->useNextPc) {
-            ins_len = s->nextPc - s->insPc;
-            if (ins_len > HSAFE_MAX_INST_LENGTH) ins_len = HSAFE_MAX_INST_LENGTH;
-          }
-
-          cb->insts[cb->currentInstIndex].addr = (uint16_t)(s->insPc & HSAFE_ADDR_MASK);
-          DEBUG_PRINT(15, "\t>>>>>>>>>>>>>>>>>> Ints[%03ld - 0x%04x] len=%03ld: ",
-                (unsigned long) cb->currentInstIndex,
-                (unsigned int) cb->insts[cb->currentInstIndex].addr,
-                (unsigned long) ins_len);
-          for (i = 0; i < ins_len; ++i) {
-            cb->insts[cb->currentInstIndex].mem[i] = cpu_ldub_code(env, s->insPc + i);
-            DEBUG_PRINT(15, "%x ", cb->insts[cb->currentInstIndex].mem[i]);
-          }
-          DEBUG_PRINT(15, "\n");
-          cb->currentInstIndex++;
-        }
-    }
-    s->done_instr_end = 1;
-  }
-}
+// static void hsafe_gen_instr_end(CPUX86State *env,
+//                                 DisasContext *s,
+// 				struct TranslationBlock *tb) {
+//   int i;
+//   if (s && !s->done_instr_end) {
+//     if (tb && tb->hsafe_cb && tb->hsafe_cb->insts && tb->hsafe_cb->startPc && (gHSafeState.targetCr3 == env->cr[3])) {
+//         HSafeCodeBlock* cb = tb->hsafe_cb;
+// 
+//         if (cb->currentInstIndex < HSAFE_MAX_BLOCK_LENGTH) {
+//           int64_t ins_len = 1;
+//           if (s->useNextPc) {
+//             ins_len = s->nextPc - s->insPc;
+//             if (ins_len > HSAFE_MAX_INST_LENGTH) ins_len = HSAFE_MAX_INST_LENGTH;
+//           }
+// 
+//           cb->insts[cb->currentInstIndex].addr = (uint16_t)(s->insPc & HSAFE_ADDR_MASK);
+//           DEBUG_PRINT(15, "\t>>>>>>>>>>>>>>>>>> Ints[%03ld - 0x%04x] len=%03ld: ",
+//                 (unsigned long) cb->currentInstIndex,
+//                 (unsigned int) cb->insts[cb->currentInstIndex].addr,
+//                 (unsigned long) ins_len);
+//           for (i = 0; i < ins_len; ++i) {
+//             cb->insts[cb->currentInstIndex].mem[i] = cpu_ldub_code(env, s->insPc + i);
+//             DEBUG_PRINT(15, "%x ", cb->insts[cb->currentInstIndex].mem[i]);
+//           }
+//           DEBUG_PRINT(15, "\n");
+//           cb->currentInstIndex++;
+//         }
+//     }
+//     s->done_instr_end = 1;
+//   }
+// }
 
 void helper_HSAFE_raise_interrupt(CPUX86State *env, int intno, int next_eip_addend) {
     DEBUG_PRINT(10, "\tRuntime: Interrupt %d\n", intno);
@@ -334,60 +334,63 @@ void helper_HSAFE_raise_interrupt(CPUX86State *env, int intno, int next_eip_adde
 
 static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc) {
   if (s && s->tb && s->tb->hsafe_cb) {
-    if ((pc >= 0xc0000000) || (pc <= 0x10000000)) {
-      DEBUG_PRINT(16, "Ignoring kernel bb 0x%llx\n", (unsigned long long) s->tb->hsafe_cb->startPc);
+    if ((pc >= 0xc0000000) || (pc <= 0x1000000)) {
+      DEBUG_PRINT(16, "Ignoring kernel bb 0x%llx\n", (unsigned long long) pc);
       s->tb->hsafe_cb->startPc = 0;
       return;
     }
-    DEBUG_PRINT(15, "\tTranslate: block_start 0x%llx\n", (unsigned long long) s->tb->hsafe_cb->startPc);
-    if (!s->tb->hsafe_cb->insts) {
-      s->tb->hsafe_cb->insts = (HSafeInstruction *) malloc(sizeof(HSafeCodeBlock) * HSAFE_MAX_BLOCK_LENGTH);
-    }
+    DEBUG_PRINT(15, "\tTranslate: block_start 0x%llx\n", (unsigned long long) pc);
+//    if (!s->tb->hsafe_cb->insts) {
+//      s->tb->hsafe_cb->insts = (HSafeInstruction *) malloc(sizeof(HSafeCodeBlock) * HSAFE_MAX_BLOCK_LENGTH);
+//    }
     s->tb->hsafe_cb->startPc = pc;
     s->tb->hsafe_cb->currentInstIndex = 1;
   }
 }
 
-void helper_HSAFE_invoke_bblock_end_callback(CPUX86State *env, void* param2) {
+void helper_HSAFE_invoke_bblock_begin_callback(CPUX86State *env, void* param2) {
   TranslationBlock* tb;
   tb = (TranslationBlock*) param2;
 
-  char output[80];
+  // char output[80];
 
   if (!tb) return;
 
   if (gHSafeState.isInitialized && gHSafeState.isActive &&
-      tb->hsafe_cb && tb->hsafe_cb->insts && tb->hsafe_cb->startPc) {
+      tb->hsafe_cb /*&& tb->hsafe_cb->insts*/ && tb->hsafe_cb->startPc) {
 
-    if (gHSafeState.targetCr3 != env->cr[3]) {
-      DEBUG_PRINT(5, "Process switched 0x%llx\n", (unsigned long long) env->cr[3]);
-      return;
-    }
-    HSafeCodeBlock *hcb = tb->hsafe_cb;
+//    if (gHSafeState.targetCr3 != env->cr[3]) {
+//      DEBUG_PRINT(5, "Process switched 0x%llx\n", (unsigned long long) env->cr[3]);
+//      return;
+//    }
+    // HSafeCodeBlock *hcb = tb->hsafe_cb;
     // Basic block index is the prefix of the code block
-    memcpy(hcb->insts, &gHSafeState.bblockCount, sizeof(gHSafeState.bblockCount));
-    uint64_t* blockIndex = (uint64_t *)hcb->insts;
+    // memcpy(hcb->insts, &gHSafeState.bblockCount, sizeof(gHSafeState.bblockCount));
+    // uint64_t* blockIndex = (uint64_t *)hcb->insts;
     gHSafeState.bblockCount++;
 
     // Compute SHA1 for the basic block
-    sha1nfo *cb_sha1 = (sha1nfo *) &hcb->hash;
-    sha1_init(cb_sha1);
-    uint32_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
-    sha1_write(cb_sha1, (char *)hcb->insts, cbSize);
+    // sha1nfo *cb_sha1 = (sha1nfo *) &hcb->hash;
+    // sha1_init(cb_sha1);
+    // uint32_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
+    // sha1_write(cb_sha1, (char *)hcb->insts, cbSize);
 
-    DEBUG_PRINT(4, "\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu; cr3=0x%llx\n",
-           (unsigned long) *blockIndex,
-           (unsigned long long) hcb->startPc,
-           (unsigned long) hcb->currentInstIndex,
-           (unsigned long) cbSize,
-           (unsigned long long) env->cr[3]);
-    sha1_info2hex(cb_sha1, output);
-    DEBUG_PRINT(4, "\t>>>>>>>>>>>> Executed block SHA1=%s\n", output);
+    DEBUG_PRINT(4, "%lu; 0x%llx\n",
+            (unsigned long) gHSafeState.bblockCount,
+            (unsigned long long) tb->hsafe_cb->startPc);
+    // DEBUG_PRINT(4, "\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu; cr3=0x%llx\n",
+    //        (unsigned long) *blockIndex,
+    //        (unsigned long long) hcb->startPc,
+    //        (unsigned long) hcb->currentInstIndex,
+    //        (unsigned long) cbSize,
+    //        (unsigned long long) env->cr[3]);
+    // sha1_info2hex(cb_sha1, output);
+    // DEBUG_PRINT(4, "\t>>>>>>>>>>>> Executed block SHA1=%s\n", output);
 
     // Update xhash of the block
-    hsafe_xhash(&gHSafeState.curHash, sha1_result(&tb->hsafe_cb->hash));
-    sha1_result2hex(&gHSafeState.curHash, output);
-    DEBUG_PRINT(4, "\t>>>>>>>>>>>> current XHASH=%s\n", output);
+    // hsafe_xhash(&gHSafeState.curHash, sha1_result(&tb->hsafe_cb->hash));
+    // sha1_result2hex(&gHSafeState.curHash, output);
+    // DEBUG_PRINT(4, "\t>>>>>>>>>>>> current XHASH=%s\n", output);
   }
 }
 
@@ -2748,8 +2751,8 @@ static void gen_debug(DisasContext *s, target_ulong cur_eip)
    if needed */
 static void gen_eob(DisasContext *s)
 {
-    TranslationBlock *tb;
-    tb = s->tb;
+//    TranslationBlock *tb;
+//    tb = s->tb;
 
 #ifdef CONFIG_S2E
     gen_instr_end(s);
@@ -2767,16 +2770,16 @@ static void gen_eob(DisasContext *s)
         gen_helper_single_step(cpu_env);
     } else {
 #ifdef HSAFE
-        TCGv_ptr tmpTb = tcg_const_ptr((tcg_target_ulong)tb);
+//        TCGv_ptr tmpTb = tcg_const_ptr((tcg_target_ulong)tb);
         //LOK: We use tcg_temp_new since that defines a new target_ulong
         // which can be confirmed inside tcg-op.h:2141
         // TCGv tmpFrom = tcg_temp_new();
         // tcg_gen_movi_tl(tmpFrom, cur_pc);  // FROM DECAF: Why do we need to generate this inst?
 
-        gen_helper_HSAFE_invoke_bblock_end_callback(cpu_env, tmpTb);
+//        gen_helper_HSAFE_invoke_bblock_end_callback(cpu_env, tmpTb);
 
         // tcg_temp_free(tmpFrom);
-        tcg_temp_free_ptr(tmpTb);
+//        tcg_temp_free_ptr(tmpTb);
 #endif
         tcg_gen_exit_tb(0);
     }
@@ -8231,6 +8234,10 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
 
 #ifdef HSAFE
     hsafe_gen_block_start(dc, pc_start);
+
+    TCGv_ptr tmpTb = tcg_const_ptr((tcg_target_ulong)tb);
+    gen_helper_HSAFE_invoke_bblock_begin_callback(cpu_env, tmpTb);
+    tcg_temp_free_ptr(tmpTb);
 #endif /* HSAFE */
 
     gen_tb_start(tb);
@@ -8277,7 +8284,7 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
             dc->nextPc = new_pc_ptr;
             dc->useNextPc = 1;
         }
-        hsafe_gen_instr_end(env, dc, tb);
+        // hsafe_gen_instr_end(env, dc, tb);
 #endif /* HSAFE */
 
         pc_ptr = new_pc_ptr;

@@ -734,6 +734,7 @@ void tb_free(TranslationBlock *tb)
     if (tb->hsafe_cb && tb->hsafe_cb->insts) {
         free(tb->hsafe_cb->insts);
         tb->hsafe_cb->insts = NULL;
+        tb->hsafe_cb->startPc = 0;
     }
 }
 
@@ -1031,12 +1032,13 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     }
 
 #ifdef HSAFE
-      if (!tb->hsafe_cb) {
-        tb->hsafe_cb = (HSafeCodeBlock *) malloc(sizeof(HSafeCodeBlock));
-        tb->hsafe_cb->insts = NULL;
-      }
-      tb->hsafe_flags = CF_HSAFE_COMPUTING_HASH;
-      tb->hsafe_cb->currentInstIndex = 1;
+    if (!tb->hsafe_cb) {
+      tb->hsafe_cb = (HSafeCodeBlock *) malloc(sizeof(HSafeCodeBlock));
+      tb->hsafe_cb->insts = NULL;
+    }
+    tb->hsafe_flags = CF_HSAFE_COMPUTING_HASH;
+    tb->hsafe_cb->currentInstIndex = 1;
+    tb->hsafe_cb->startPc = 0;
 #endif /* HSAFE */
 
     tb->tc_ptr = tcg_ctx.code_gen_ptr;

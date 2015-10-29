@@ -12,14 +12,29 @@
 
 HSafeGlobalState gHSafeState;
 FILE *hsafe_output;
+long hsafe_linecount = 0;
+int hsafe_filecount = 0;
 
 void hsafe_init(void) {
-    printf("Initializing HSafe global state.\n");
-    hsafe_output = fopen(HSAFE_OUTPUT_FILENAME, "w");
-    gHSafeState.isInitialized = 0;
-    gHSafeState.isActive = 0;
+  char filename[256];
+  printf("Initializing HSafe global state.\n");
+  sprintf(filename, "%s%d", HSAFE_OUTPUT_FILENAME, hsafe_filecount);
+  hsafe_output = fopen(filename, "w");
+  gHSafeState.isInitialized = 0;
+  gHSafeState.isActive = 0;
 }
 
+void update_linecount(void) {
+  char filename[256];
+  hsafe_linecount++;
+  if (hsafe_linecount > MAX_LINE_PER_FILE) {
+    fclose(hsafe_output);
+    hsafe_linecount = 0;
+    hsafe_filecount++;
+    sprintf(filename, "%s%d", HSAFE_OUTPUT_FILENAME, hsafe_filecount);
+    hsafe_output = fopen(filename, "w");
+  }
+}
 void hsafe_dump_cb(HSafeCodeBlock *cb) {
   int i, j;
   printf("============== Code Block Dump Begin ==============\n");
