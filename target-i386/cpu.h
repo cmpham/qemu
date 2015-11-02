@@ -1303,6 +1303,8 @@ void cpu_vmexit(CPUX86State *nenv, uint32_t exit_code, uint64_t exit_info_1);
 
 /* seg_helper.c */
 void do_interrupt_x86_hardirq(CPUX86State *env, int intno, int is_hw);
+void get_ss_esp_from_tss(CPUX86State *env, uint32_t *ss_ptr,
+                                       uint32_t *esp_ptr, int dpl);
 
 void do_smm_enter(X86CPU *cpu);
 

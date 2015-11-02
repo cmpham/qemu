@@ -350,6 +350,8 @@ static inline void hsafe_gen_block_start(DisasContext *s, uint64_t pc) {
 
 void helper_HSAFE_invoke_bblock_begin_callback(CPUX86State *env, void* param2) {
   TranslationBlock* tb;
+  uint32_t esp0 = 0;
+  uint32_t ss0 = 0;
   tb = (TranslationBlock*) param2;
 
   // char output[80];
@@ -359,11 +361,19 @@ void helper_HSAFE_invoke_bblock_begin_callback(CPUX86State *env, void* param2) {
   if (gHSafeState.isInitialized && gHSafeState.isActive &&
       tb->hsafe_cb /*&& tb->hsafe_cb->insts*/ && tb->hsafe_cb->startPc) {
 
-//    if (gHSafeState.targetCr3 != env->cr[3]) {
-//      DEBUG_PRINT(5, "Process switched 0x%llx\n", (unsigned long long) env->cr[3]);
-//      return;
-//    }
-    // HSafeCodeBlock *hcb = tb->hsafe_cb;
+    if (gHSafeState.targetCr3 != env->cr[3]) {
+      DEBUG_PRINT(5, "Process switched 0x%llx\n", (unsigned long long) env->cr[3]);
+      return;
+    }
+
+    get_ss_esp_from_tss(env, &ss0, &esp0, 0);
+    DEBUG_PRINT(11, "\t\tss0=0x%x; esp0=0x%x", ss0, esp0);
+
+    if (gHSafeState.targetESP0 != esp0) {
+      DEBUG_PRINT(5, "Task switched 0x%x\n", esp0);
+      return;
+    }
+// HSafeCodeBlock *hcb = tb->hsafe_cb;
     // Basic block index is the prefix of the code block
     // memcpy(hcb->insts, &gHSafeState.bblockCount, sizeof(gHSafeState.bblockCount));
     // uint64_t* blockIndex = (uint64_t *)hcb->insts;
@@ -400,6 +410,7 @@ void helper_HSAFE_custom_ins_profile_init_callback(void *param1, CPUX86State *en
     tb->hsafe_flags |= CF_HSAFE_HAS_INIT;
     gHSafeState.isInitialized = 1;
     gHSafeState.targetCr3 = env->cr[3];
+
     DEBUG_PRINT(10, "\tRuntime: hsafe_profile_init. hsafe_flags=%x. HSafe Initialized = %d\n",
       tb->hsafe_flags, gHSafeState.isInitialized);
 }
@@ -413,14 +424,24 @@ void helper_HSAFE_custom_ins_profile_stop_callback(void *param1) {
       tb->hsafe_flags, gHSafeState.isInitialized);
 }
 
-void helper_HSAFE_custom_ins_block_begin_callback(void *param1) {
+void helper_HSAFE_custom_ins_block_begin_callback(void *param1, CPUX86State *env) {
+    uint32_t esp0 = 0;
+    uint32_t ss0 = 0;
     TranslationBlock *tb;
     tb = (TranslationBlock*) param1;
     tb->hsafe_flags |= CF_HSAFE_HAS_BSTART;
     hasfe_xhashInit(&gHSafeState.curHash);
     gHSafeState.isActive = 1;
     gHSafeState.bblockCount = 0;
-    DEBUG_PRINT(10, "\tRuntime: hsafe_block_begin. hsafe_flags=%x\n", tb->hsafe_flags);
+
+    get_ss_esp_from_tss(env, &ss0, &esp0, 0);
+    gHSafeState.targetESP0 = esp0;
+    DEBUG_PRINT(11, "\t\tcr3=0x%llx; ss0=0x%x; esp0=0x%x",
+      (unsigned long long) gHSafeState.targetCr3,
+      ss0,
+      gHSafeState.targetESP0);
+
+   DEBUG_PRINT(10, "\tRuntime: hsafe_block_begin. hsafe_flags=%x\n", tb->hsafe_flags);
 }
 
 void helper_HSAFE_custom_ins_block_end_callback(void *param1) {
@@ -463,7 +484,7 @@ static inline void hsafe_custom_instruction(DisasContext *s, target_ulong arg, C
 
     case 0x62: /* profile_block_begin */
       DEBUG_PRINT(10, "\tTranslate: profile_block_begin\n");
-      gen_helper_HSAFE_custom_ins_block_begin_callback(tmpTb);
+      gen_helper_HSAFE_custom_ins_block_begin_callback(tmpTb, cpu_env);
       break;
 
     case 0x63: /* profile_block_end */

@@ -123,7 +123,7 @@ static inline void load_seg_vm(CPUX86State *env, int seg, int selector)
                            DESC_A_MASK | (3 << DESC_DPL_SHIFT));
 }
 
-static inline void get_ss_esp_from_tss(CPUX86State *env, uint32_t *ss_ptr,
+void get_ss_esp_from_tss(CPUX86State *env, uint32_t *ss_ptr,
                                        uint32_t *esp_ptr, int dpl)
 {
     X86CPU *cpu = x86_env_get_cpu(env);

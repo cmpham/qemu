@@ -13,7 +13,7 @@
 #include "hsafe/sha1.h"
 
 // Debug functions
-#define HSAFE_DEBUG_LEVEL 5
+#define HSAFE_DEBUG_LEVEL 4
 #ifdef HSAFE_DEBUG_LEVEL
     #define DEBUG_PRINT(level, msg, args...) \
         if (level <= HSAFE_DEBUG_LEVEL) { \
@@ -52,10 +52,12 @@ typedef struct HSafeGlobalState {
   uint8_t isActive;
   uint64_t bblockCount;
   uint64_t targetCr3;
+  uint32_t targetESP0;
   sha1result curHash;
 } HSafeGlobalState;
 
 #define MAX_LINE_PER_FILE 100000000
+
 extern FILE *hsafe_output;
 extern long hsafe_linecount;
 void update_linecount(void);

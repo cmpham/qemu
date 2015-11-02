@@ -6,7 +6,7 @@ DEF_HELPER_FLAGS_4(cc_compute_c, TCG_CALL_NO_RWG_SE, tl, tl, tl, tl, int)
 DEF_HELPER_2(HSAFE_invoke_bblock_begin_callback, void, env, ptr)
 DEF_HELPER_2(HSAFE_custom_ins_profile_init_callback, void, ptr, env)
 DEF_HELPER_1(HSAFE_custom_ins_profile_stop_callback, void, ptr)
-DEF_HELPER_1(HSAFE_custom_ins_block_begin_callback, void, ptr)
+DEF_HELPER_2(HSAFE_custom_ins_block_begin_callback, void, ptr, env)
 DEF_HELPER_1(HSAFE_custom_ins_block_end_callback, void, ptr)
 
 DEF_HELPER_3(HSAFE_raise_interrupt, void, env, int, int)
