@@ -13,7 +13,7 @@
 #include "hsafe/sha1.h"
 
 // Debug functions
-#define HSAFE_DEBUG_LEVEL 4
+#define HSAFE_DEBUG_LEVEL 0
 #ifdef HSAFE_DEBUG_LEVEL
     #define DEBUG_PRINT(level, msg, args...) \
         if (level <= HSAFE_DEBUG_LEVEL) { \
@@ -30,12 +30,25 @@
 #define HSAFE_MAX_INST_LENGTH 16 /* Length of an instruction in bytes */
 #define HSAFE_ADDR_MASK 0xFF
 
+#define HSAFE_BB_BUFFER_SIZE 128
+
 #define HSAFE_OUTPUT_FILENAME "hs.log"
+#define HSAFE_OUTPUT_TEMP_DIR "/run/shm"  // RAM disk directory
 
 typedef struct HSafeInstruction {
   uint16_t addr;
   uint8_t mem[HSAFE_MAX_INST_LENGTH];
 } HSafeInstruction;
+
+typedef struct HSafeBBNode {
+  uint64_t startPc;
+  uint64_t bblockIndex;
+} HSafeBBNode;
+
+extern HSafeBBNode* HSafe_BB_Buffer;
+extern long hsafe_node_count;
+void hsafe_save_node(uint64_t startPc, uint64_t bblockIndex);
+void hsafe_flush_output(void);
 
 // We utilize the first HSafeInstruction to store the block index.
 // This helps with memory alignment in sha1 calculation.
@@ -56,7 +69,7 @@ typedef struct HSafeGlobalState {
   sha1result curHash;
 } HSafeGlobalState;
 
-#define MAX_LINE_PER_FILE 100000000
+#define MAX_LINE_PER_FILE 1000000
 
 extern FILE *hsafe_output;
 extern long hsafe_linecount;

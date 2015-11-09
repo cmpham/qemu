@@ -385,9 +385,10 @@ void helper_HSAFE_invoke_bblock_begin_callback(CPUX86State *env, void* param2) {
     // uint32_t cbSize = sizeof(struct HSafeInstruction) * hcb->currentInstIndex;
     // sha1_write(cb_sha1, (char *)hcb->insts, cbSize);
 
-    DEBUG_PRINT(4, "%lu; 0x%llx\n",
-            (unsigned long) gHSafeState.bblockCount,
-            (unsigned long long) tb->hsafe_cb->startPc);
+    hsafe_save_node(tb->hsafe_cb->startPc, gHSafeState.bblockCount);
+    // DEBUG_PRINT(4, "%lu; 0x%llx\n",
+    //        (unsigned long) gHSafeState.bblockCount,
+    //        (unsigned long long) tb->hsafe_cb->startPc);
     // DEBUG_PRINT(4, "\t>>>>>>>>>>>> blockIndex=%lu; startPc=0x%llx; instNum=%lu; cbSize=%lu; cr3=0x%llx\n",
     //        (unsigned long) *blockIndex,
     //        (unsigned long long) hcb->startPc,
